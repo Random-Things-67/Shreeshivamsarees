@@ -1,0 +1,10 @@
+saree_store.sqlite3
+saree_store.sqlite3-*
+*.db
+*.sqlite
+*.sqlite3
+static/uploads/*
+!static/uploads/.keep
+__pycache__/
+*.pyc
+.env

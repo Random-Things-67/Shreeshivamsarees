@@ -1,0 +1,891 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}.price-sort-btn{font:500 12px/1.2 var(--sans);padding:5px 9px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--text);cursor:pointer;white-space:nowrap}.price-sort-btn:hover{border-color:var(--accent)}
+</style>
+<style>
+#karigarReportDialog{position:fixed;inset:0;z-index:99999;font:14px/1.4 var(--ui,Arial,sans-serif);color:var(--fg,#222)}#karigarReportDialog .kr-backdrop{position:absolute;inset:0;background:#0009}#karigarReportDialog .kr-modal{position:relative;margin:5vh auto 0;width:min(560px,calc(100vw - 28px));max-height:90vh;overflow:auto;background:var(--surface,#fff);border:1px solid var(--line,#ddd);border-radius:12px;box-shadow:0 20px 70px #0007}#karigarReportDialog header,#karigarReportDialog footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line,#ddd)}#karigarReportDialog header h2{margin:0;font-size:21px}#karigarReportDialog footer{border-bottom:0;border-top:1px solid var(--line,#ddd);justify-content:flex-end;position:sticky;bottom:0;background:var(--surface,#fff)}#karigarReportDialog .kr-body{padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:12px}#karigarReportDialog .kr-body>h3,#karigarReportDialog .kr-hint{grid-column:1/-1;margin:4px 0}#karigarReportDialog label{display:flex;flex-direction:column;gap:5px;font-weight:600;font-size:12px}#karigarReportDialog input,#karigarReportDialog select,#karigarReportDialog textarea{width:100%;box-sizing:border-box;background:var(--bg,#fff);color:var(--fg,#222);border:1px solid var(--line,#bbb);border-radius:5px;padding:9px;font:inherit}#karigarReportDialog #krName{grid-column:1/-1}#karigarReportDialog .kr-hint{font-size:12px;color:var(--muted,#666);font-weight:400}@media(max-width:480px){#karigarReportDialog .kr-body{grid-template-columns:1fr}#karigarReportDialog .kr-body>*{grid-column:1/-1}}
+</style>
+</head><body>
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Saree Stock Manager</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a dense admin shell. Header and tabs on top, a scannable table, and dialog forms below. */
+:root{
+  --bg:#f6f0e4; --surface:#fffdf7; --line:#e2d6bf; --fg:#2b1c1f; --muted:#7d6c64;
+  --accent:#6b1830; --gold:#a8822f; --danger:#a13a2c; --ok:#2f6a45; --warn:#9a6a10;
+  --display:"Cormorant Garamond",Georgia,serif; --ui:"IBM Plex Sans",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1c1517; --surface:#261d20; --line:#40323a; --fg:#f2e9dd; --muted:#a99a92;
+    --accent:#dba5b0; --gold:#d8b76c; --danger:#e8968a; --ok:#93c9a0; --warn:#e0b765; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1c1517; --surface:#261d20; --line:#40323a; --fg:#f2e9dd; --muted:#a99a92;
+  --accent:#dba5b0; --gold:#d8b76c; --danger:#e8968a; --ok:#93c9a0; --warn:#e0b765; color-scheme:dark;
+}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 var(--ui);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px}
+input,select,button,textarea{font:inherit;color:var(--fg)}
+input,select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:7px 9px;min-width:0;box-sizing:border-box}
+textarea{width:100%;resize:vertical;line-height:1.45}
+.field textarea{width:100%}
+button{cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:7px 11px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+button.danger{color:var(--danger)}
+button:disabled{opacity:.4;cursor:default}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:12px}
+.brand{font:600 30px/1 var(--display);color:var(--accent)}
+.sub{color:var(--muted);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.tabs{display:flex;gap:6px}
+.tabs button{background:none;border-color:transparent;color:var(--muted)}
+.tabs button[aria-selected="true"]{color:var(--fg);border-color:var(--line);background:var(--surface)}
+.notice{margin:12px 0;padding:8px 12px;border-left:3px solid var(--gold);background:var(--surface);color:var(--muted);font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:10px 12px}
+.stat b{display:block;font:600 22px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.toolbar input[type=search]{flex:1 1 220px}
+.sortbox{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:4px}
+table{border-collapse:collapse;width:100%;min-width:900px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;vertical-align:middle}
+th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);cursor:pointer;user-select:none;background:var(--bg)}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+tbody tr.find-selected{background:color-mix(in srgb,var(--gold) 24%,var(--surface));outline:2px solid var(--gold);outline-offset:-2px}
+.findbox{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:12px;margin:0 0 12px}
+.findrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.findrow input{flex:1 1 260px}.findresults{display:grid;gap:5px;margin-top:8px}.findresults button{text-align:left;white-space:normal}.findresults button small{display:block;color:var(--muted)}
+td.desc{white-space:normal;min-width:200px;max-width:280px}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.pos{color:var(--ok)}
+.neg{color:var(--danger)}
+.badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;background:var(--bg);border:1px solid var(--line)}
+.badge.ok{color:var(--ok);border-color:transparent;background:color-mix(in srgb,var(--ok) 16%,transparent)}
+.badge.warn{color:var(--warn);border-color:transparent;background:color-mix(in srgb,var(--warn) 16%,transparent)}
+.badge.sold{color:var(--accent);border-color:transparent;background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.thumb{width:44px;height:44px;object-fit:cover;border-radius:3px;display:block}
+.thumb.lg{width:120px;height:120px;margin-top:6px}
+dialog{background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:6px;width:min(780px,94vw);padding:18px}
+dialog::backdrop{background:rgb(0 0 0 / .45)}
+#dlgTitle{font:600 24px/1.1 var(--display);margin:0 0 12px;color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field.wide{grid-column:1/-1}
+.field>span,.field>label{font-size:12px;color:var(--muted)}
+.field input,.field select{width:100%;box-sizing:border-box}
+.stage{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.stage>span{grid-column:1/-1}
+.dlgfoot{display:flex;justify-content:space-between;gap:10px;margin-top:16px;flex-wrap:wrap;align-items:center}
+.dlgfoot .btns{display:flex;gap:8px;flex-wrap:wrap}
+.live{color:var(--muted);font-variant-numeric:tabular-nums}
+.live b{font-weight:600}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:14px 16px;margin-bottom:14px}
+.panel h2{font:600 22px/1.1 var(--display);margin:0 0 6px}
+.hint{color:var(--muted);font-size:13px;margin:8px 0 0}
+.frow{padding:9px 0;border-bottom:1px solid var(--line)}
+.frow-main{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.frow.off .lbl-in{opacity:.55}
+.lbl-in{flex:1 1 180px}
+.moves{display:flex;gap:4px;margin-left:auto}
+.chev{padding:5px 9px}
+.detail{margin:10px 0 2px 26px;padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:4px;display:grid;gap:10px}
+.detail .fl{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.detail .fl select{max-width:260px}
+.optlist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.optlist li{display:flex;gap:6px;align-items:center}
+.optlist input{flex:1}
+.addopt{display:flex;gap:6px}
+.addopt input{flex:1}
+.addform{display:flex;flex-wrap:wrap;gap:8px}
+.addform input[name=label]{flex:1 1 180px}
+.addform input[name=options]{flex:2 1 240px}
+.toast{position:fixed;left:50%;bottom:max(16px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--accent);color:var(--bg);padding:8px 14px;border-radius:4px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion: reduce){.toast{transition:none}}
+@media (max-width:520px){.moves{margin-left:0}.detail{margin-left:0}}
+</style>
+
+<header class="top">
+  <div>
+    <div class="brand">Saree Stock</div>
+    <div class="sub">Owner's stock manager</div>
+  </div>
+  <nav class="tabs" aria-label="Sections">
+    <button data-tab="stock" aria-selected="true">Stock</button>
+    <button data-tab="fields" aria-selected="false">Fields</button>
+    <button data-tab="karigars" aria-selected="false">Karigar Details</button>
+    <button data-tab="home" aria-selected="false">Homepage</button>
+    <button type="button" id="logoutBtn">Log out</button>
+  </nav>
+</header>
+
+<p class="notice">Admin changes save to this computer's shared SQLite database. Use Stock to manage sarees, Karigar Details for contact records and purchase history, Homepage to edit the customer-facing storefront, and Fields to customise stock fields. Keep this admin page on a trusted network.</p>
+
+<main id="main"></main>
+
+<dialog id="dlg">
+  <h2 id="dlgTitle"></h2>
+  <form id="itemForm"></form>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const KEY_SCHEMA='saree-schema-v1', KEY_ITEMS='saree-items-v1', KEY_HOME='saree-home-content-v1', KEY_HOME_IMAGES='saree-home-images-v1';
+const STAGES=[['fal','Fal'],['piko','Piko'],['cutting','Cutting'],['jalar','Jalar'],['dag','Dag'],['finishing','Finishing'],['die','Die'],['raffu','Raffu'],['polish','Polish']];
+const TYPE_NAMES={text:'Text',number:'Number',date:'Date',dropdown:'Dropdown',stage:'Work stage',photo:'Photo',computed:'Auto'};
+const CUSTOM_TYPES=['text','number','date','dropdown'];
+const HOME_DEFAULTS={brandName:'Saree Stock',tagline:'Tradition in every drape',announcement:'A little elegance goes a long way — discover your next favourite drape.',eyebrow:'The saree collection',heroTitle:'Timeless elegance.\nMade for your moments.',heroDescription:'Explore detailed product information, browse by fabric and occasion, and find a saree that feels made for your moment. Product details and prices are maintained by our store team.',ctaText:'Explore collection',categoryTitle:'Shop by category',categorySubtitle:'Find your style',catalogTitle:'Our sarees',catalogSubtitle:'Photos, pricing and details in one place',aboutText:'Saree Stock is a thoughtfully curated collection of sarees for everyday elegance, family celebrations and special moments. Browse the catalogue for product details and contact the store to confirm availability.',footerQuestion:'Questions about a product? Contact the store owner.',footerNote:'Product availability and prices are subject to confirmation.'};
+function readHome(){const saved=read(KEY_HOME,{});return {...HOME_DEFAULTS,...(saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:{})}}
+function readHomeImages(){const saved=read(KEY_HOME_IMAGES,[]);return Array.isArray(saved)?saved.filter(x=>x&&typeof x.url==='string'&&x.url.startsWith('/uploads/home-')):[]}
+function saveHomeImages(images){try{localStorage.setItem(KEY_HOME_IMAGES,JSON.stringify(images));return true}catch(e){toast('Could not save homepage images');return false}}
+
+const $=s=>document.querySelector(s);
+$('#logoutBtn').addEventListener('click',()=>{const f=document.createElement('form');f.method='post';f.action='/api/logout';f.hidden=true;document.body.appendChild(f);f.submit()});
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,10);
+const money=n=>n==null||n===''?'—':'₹'+Number(n).toLocaleString('en-IN');
+const todayStr=()=>new Date().toLocaleDateString('en-CA');
+const opt=(v,sel)=>`<option value="${esc(v)}"${v===sel?' selected':''}>${esc(v)}</option>`;
+
+function defaultSchema(){
+  return [
+    {key:'date',label:'Date',type:'date',enabled:true,builtin:true},
+    {key:'paymentStatus',label:'Payment Status',type:'dropdown',options:['Paid','Pending'],enabled:true,builtin:true},
+    {key:'paymentMethod',label:'Payment Method',type:'dropdown',options:['Cash','UPI','Card','Bank'],enabled:true,builtin:true},
+    {key:'karigar',label:'Karigar Ka Naam',type:'text',enabled:true,builtin:true},
+    {key:'karigarPhone',label:'Karigar Phone No.',type:'text',enabled:true,builtin:true},
+    {key:'karigarAddress',label:'Karigar Address',type:'text',enabled:true,builtin:true},
+    {key:'category',label:'Category',type:'dropdown',options:['Silk','Kanjivaram','Chiffon','Cotton','Georgette'],enabled:true,builtin:true},
+    {key:'description',label:'Description',type:'text',enabled:true,builtin:true},
+    {key:'price',label:'Sale Price',type:'number',money:true,enabled:true,builtin:true},
+    {key:'itemPrice',label:'Item Price',type:'number',money:true,enabled:true,builtin:true},
+    {key:'calendar',label:'Calendar',type:'date',enabled:true,builtin:true},
+    ...STAGES.map(([k,l])=>({key:k,label:l,type:'stage',enabled:true,builtin:true})),
+    {key:'sold',label:'Sale Status',type:'dropdown',options:['Unsold','Sold'],enabled:true,builtin:true},
+    {key:'photo',label:'Photo',type:'photo',enabled:true,builtin:true},
+    {key:'profit',label:'Profit',type:'computed',enabled:true,builtin:true},
+    {key:'customer',label:'Customer Details',type:'text',enabled:true,builtin:true},
+  ];
+}
+
+function seed(){
+  const st=(done,cost)=>({done,cost});
+  const rec=(v)=>({id:uid(),photo:null,values:v});
+  const blank=Object.fromEntries(STAGES.map(([k])=>[k,st(false,0)]));
+  return [
+    rec({...blank,date:'2026-10-02',paymentStatus:'Paid',paymentMethod:'UPI',karigar:'Sample karigar A',category:'Kanjivaram',description:'Sample entry: maroon Kanjivaram with gold zari border',price:18500,itemPrice:9000,calendar:'2026-10-20',sold:'Unsold',customer:'',fal:st(true,300),piko:st(true,450),cutting:st(true,0),jalar:st(true,600)}),
+    rec({...blank,date:'2026-10-05',paymentStatus:'Pending',paymentMethod:'Cash',karigar:'Sample karigar B',category:'Chiffon',description:'Sample entry: pink chiffon with sequin work',price:4200,itemPrice:1800,calendar:'',sold:'Sold',customer:'Sample customer',fal:st(true,120),piko:st(true,0),cutting:st(true,0)}),
+  ];
+}
+
+function read(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function persist(){
+  try{
+    localStorage.setItem(KEY_SCHEMA,JSON.stringify(schema));
+    localStorage.setItem(KEY_ITEMS,JSON.stringify(items));
+  }catch(e){toast('Could not save: browser storage is full or blocked')}
+}
+
+let schema=read(KEY_SCHEMA,null)||defaultSchema();
+// Add new built-in fields to existing saved schemas without deleting user fields.
+for (const f of defaultSchema().filter(x=>['karigarPhone','karigarAddress'].includes(x.key))) {
+  if (!schema.some(x=>x.key===f.key)) schema.splice(Math.max(0,schema.findIndex(x=>x.key==='category')),0,f);
+}
+if (!read(KEY_SCHEMA,null)?.some(x=>x.key==='karigarPhone') || !read(KEY_SCHEMA,null)?.some(x=>x.key==='karigarAddress')) { try { localStorage.setItem(KEY_SCHEMA,JSON.stringify(schema)); } catch(e) {} }
+
+let items=read(KEY_ITEMS,null)||[];
+const oldItemCount=items.length;
+items=items.filter(it=>!String(it?.values?.description||'').startsWith('Sample entry:')); // remove old demo products
+if(items.length!==oldItemCount) persist();
+let view='stock', editingId=null, editingPhoto=null, sortKey='date', sortDir=-1, selectedFindId=null, findQuery='';
+const filters={q:'',category:'',payment:'',sold:''};
+const finder={q:'',priceExact:'',priceMin:'',priceMax:'',category:'',mode:'filter'};
+const openFields=new Set();
+
+let tt;
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),1800)}
+
+const stageFields=()=>schema.filter(f=>f.type==='stage');
+const stageCost=v=>stageFields().reduce((s,f)=>s+Number(v[f.key]?.cost||0),0);
+const profitOf=v=>Number(v.price||0)-Number(v.itemPrice||0)-stageCost(v);
+const sortableFields=()=>schema.filter(f=>f.enabled&&f.type!=='photo');
+
+function cell(f,it){
+  const v=it.values, x=v[f.key];
+  switch(f.type){
+    case 'stage': return `<span class="badge ${x?.done?'ok':''}">${x?.done?'Done':'Pending'}</span> <span class="num">${money(Number(x?.cost||0))}</span>`;
+    case 'photo': {const photos=Array.isArray(it.photo)?it.photo:(it.photo?[it.photo]:[]); return photos.length?`<img class="thumb" src="${photos[0]}" alt="" title="${photos.length} photo(s)">`:'<span class="muted">—</span>';}
+    case 'computed': {const p=profitOf(v); return `<span class="num ${p<0?'neg':'pos'}">${money(p)}</span>`;}
+    case 'number': return f.money?`<span class="num">${money(x)}</span>`:esc(x??'—');
+    case 'dropdown':
+      if(f.key==='sold') return `<span class="badge ${x==='Sold'?'sold':''}">${esc(x||'Unsold')}</span>`;
+      if(f.key==='paymentStatus') return `<span class="badge ${x==='Paid'?'ok':x==='Pending'?'warn':''}">${esc(x||'—')}</span>`;
+      return esc(x||'—');
+    default: return esc(x||'—');
+  }
+}
+
+function sortVal(it,key){
+  if(key==='profit') return profitOf(it.values);
+  if(key==='photo') return it.photo?(Array.isArray(it.photo)?it.photo.length:1):0;
+  const f=schema.find(s=>s.key===key);
+  const v=it.values[key];
+  if(f?.type==='stage') return v?.cost??0;
+  // Dropdowns sort in the order their options are listed, so "Paid" before "Pending" stays meaningful.
+  if(f?.type==='dropdown'){const idx=(f.options||[]).indexOf(v); return idx<0?9999:idx;}
+  if(f?.money||f?.type==='number') return Number(v??0);
+  return String(v??'').toLowerCase();
+}
+
+function visibleRows(){
+  const q=filters.q.toLowerCase();
+  const finderQ=finder.q.trim().toLowerCase();
+  const priceOf=it=>Number(it.values.price??0);
+  const finderMatch=it=>{
+    const v=it.values||{}, meta=itemFindText(it);
+    const hay=[meta.name,meta.id,meta.category,v.description,v.color,v.design].join(' ').toLowerCase();
+    if(finderQ&&!hay.includes(finderQ)) return false;
+    if(finder.category&&String(v.category||'').toLowerCase()!==finder.category.toLowerCase()) return false;
+    if(finder.priceExact!==''&&priceOf(it)!==Number(finder.priceExact)) return false;
+    if(finder.priceMin!==''&&priceOf(it)<Number(finder.priceMin)) return false;
+    if(finder.priceMax!==''&&priceOf(it)>Number(finder.priceMax)) return false;
+    return true;
+  };
+  const rows=items.filter(it=>{
+    const v=it.values;
+    if(filters.category&&v.category!==filters.category) return false;
+    if(filters.payment&&v.paymentStatus!==filters.payment) return false;
+    if(filters.sold&&(v.sold||'Unsold')!==filters.sold) return false;
+    if(q&&![v.karigar,v.description,v.category,v.customer].some(x=>String(x||'').toLowerCase().includes(q))) return false;
+    if(finder.mode==='filter'&&!finderMatch(it)) return false;
+    return true;
+  });
+  rows.sort((a,b)=>{
+    const x=sortVal(a,sortKey), y=sortVal(b,sortKey);
+    return (x>y?1:x<y?-1:0)*sortDir;
+  });
+  return rows;
+}
+
+function stockView(){
+  const cats=schema.find(f=>f.key==='category')?.options||[];
+  const pays=schema.find(f=>f.key==='paymentStatus')?.options||[];
+  return `
+    <div class="stats" id="stats"></div>
+    <section class="findbox" aria-label="Product finder filters">
+      <div class="toolbar" aria-label="Product finder filters">
+        <input type="search" id="finderQuery" placeholder="Product name, ID, category…" value="${esc(finder.q)}" aria-label="Search product name, ID or category">
+        <input type="number" min="0" step="0.01" id="finderExact" placeholder="Exact price ₹" value="${esc(finder.priceExact)}" aria-label="Exact sale price">
+        <input type="number" min="0" step="0.01" id="finderMin" placeholder="Min price ₹" value="${esc(finder.priceMin)}" aria-label="Minimum sale price">
+        <input type="number" min="0" step="0.01" id="finderMax" placeholder="Max price ₹" value="${esc(finder.priceMax)}" aria-label="Maximum sale price">
+        <input list="finderCategories" id="finderCategory" placeholder="Type category…" value="${esc(finder.category)}" aria-label="Type category">
+        <datalist id="finderCategories">${cats.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
+        <select id="finderMode" aria-label="Finder result mode"><option value="filter"${finder.mode==='filter'?' selected':''}>Show matches only</option><option value="highlight"${finder.mode==='highlight'?' selected':''}>Highlight matches</option></select>
+        <button type="button" data-action="clear-filters">Clear filters</button>
+      </div>
+    </section>
+    <div class="toolbar">
+      <input type="search" id="q" placeholder="Search karigar, description, customer" value="${esc(filters.q)}" aria-label="Search">
+      <select data-filter="category" aria-label="Category"><option value="">All categories</option>${cats.map(c=>opt(c,filters.category)).join('')}</select>
+      <select data-filter="payment" aria-label="Payment status"><option value="">All payments</option>${pays.map(p=>opt(p,filters.payment)).join('')}</select>
+      <select data-filter="sold" aria-label="Sale status"><option value="">Sold and unsold</option>${opt('Unsold',filters.sold)}${opt('Sold',filters.sold)}</select>
+      <label class="sortbox">Sort by
+        <select id="sortKey" aria-label="Sort by field">${sortableFields().map(f=>`<option value="${f.key}"${f.key===sortKey?' selected':''}>${esc(f.label)}</option>`).join('')}</select>
+      </label>
+      <button id="sortDir" data-action="dir" aria-label="Toggle sort direction">${sortDir>0?'Ascending ↑':'Descending ↓'}</button>
+      <button type="button" data-action="karigar-report">Karigar PDF Report</button>
+      <button class="primary" data-action="add">+ Add saree</button>
+    </div>
+    <div class="tablewrap"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+    <p class="hint">Sort with the menu above or by clicking a column heading. Click a row to edit it.</p>`;
+}
+
+function renderStats(){
+  const s=$('#stats'); if(!s) return;
+  const unsold=items.filter(i=>i.values.sold!=='Sold').length;
+  const pending=items.filter(i=>i.values.paymentStatus==='Pending').length;
+  const profit=items.reduce((n,i)=>n+profitOf(i.values),0);
+  s.innerHTML=`
+    <div class="stat"><b>${items.length}</b><span>Saree records</span></div>
+    <div class="stat"><b>${unsold}</b><span>Unsold</span></div>
+    <div class="stat"><b>${pending}</b><span>Payment pending</span></div>
+    <div class="stat"><b class="${profit<0?'neg':''}">${money(profit)}</b><span>Total profit</span></div>`;
+}
+
+function renderBody(){
+  const cols=schema.filter(f=>f.enabled);
+  // If the sorted field was hidden, fall back to the first visible one.
+  if(!cols.some(f=>f.key===sortKey)&&cols[0]) sortKey=cols.find(f=>f.type!=='photo')?.key||cols[0].key;
+  const sk=$('#sortKey'); if(sk){ sk.innerHTML=sortableFields().map(f=>`<option value="${f.key}"${f.key===sortKey?' selected':''}>${esc(f.label)}</option>`).join(''); }
+  const sd=$('#sortDir'); if(sd) sd.textContent=sortDir>0?'Ascending ↑':'Descending ↓';
+  $('#thead').innerHTML='<tr>'+cols.map(f=>`<th data-sort="${f.key}">${esc(f.label)}${sortKey===f.key?(sortDir>0?' ▲':' ▼'):''}</th>`).join('')+'</tr>';
+  const rows=visibleRows();
+  const finderMatchRow=it=>{const v=it.values||{},meta=itemFindText(it),q=finder.q.trim().toLowerCase(),price=Number(v.price??0);const hay=[meta.name,meta.id,meta.category,v.description,v.color,v.design].join(' ').toLowerCase();return (!q||hay.includes(q))&&(!finder.category||String(v.category||'').toLowerCase()===finder.category.toLowerCase())&&(finder.priceExact===''||price===Number(finder.priceExact))&&(finder.priceMin===''||price>=Number(finder.priceMin))&&(finder.priceMax===''||price<=Number(finder.priceMax));};
+  $('#tbody').innerHTML=rows.length
+    ? rows.map(it=>`<tr data-id="${it.id}" class="${String(it.id)===String(selectedFindId)?'find-selected':''} ${finder.mode==='highlight'&&finderMatchRow(it)?'find-selected':''}"${String(it.id)===String(selectedFindId)?' aria-current="true"':''}>${cols.map(f=>`<td class="${f.key==='description'?'desc':''}">${cell(f,it)}</td>`).join('')}</tr>`).join('')
+    : `<tr><td colspan="${Math.max(cols.length,1)}" class="muted">No sarees match. Clear the filters or add one.</td></tr>`;
+  renderFindResults();
+  renderStats();
+}
+
+function itemFindText(it){
+  const v=it.values||{};
+  const name=v.productName||v.name||v.description||v.category||'Unnamed item';
+  const category=v.category||'';
+  return {name:String(name), category:String(category), id:String(it.id), haystack:[name,category,it.id,...Object.values(v).filter(x=>typeof x==='string')].join(' ').toLowerCase()};
+}
+function renderFindResults(){
+  const box=$('#findResults'), input=$('#findItemQuery'), label=$('#findSelectedLabel');
+  if(!box||!input||!label) return;
+  const q=findQuery.trim().toLowerCase();
+  const found=q.length?items.map(it=>({it,meta:itemFindText(it)})).filter(x=>x.meta.haystack.includes(q)).slice(0,12):[];
+  box.innerHTML=found.length?found.map(({it,meta})=>`<button type="button" data-action="choose-find" data-id="${esc(meta.id)}" role="option"><strong>${esc(meta.name)}</strong><small>ID: ${esc(meta.id)}${meta.category?' · Category: '+esc(meta.category):''}</small></button>`).join(''):q?'<span class="muted">No matching items.</span>':'<span class="muted">Start typing to see matching items.</span>';
+  const selected=items.find(it=>String(it.id)===String(selectedFindId));
+  label.textContent=selected?'Selected: '+itemFindText(selected).name+' (ID: '+selected.id+'). The stock list is not filtered by this selection.':'';
+}
+function selectFoundItem(id){
+  const it=items.find(x=>String(x.id)===String(id)); if(!it) return;
+  selectedFindId=it.id;
+  renderBody();
+  const row=document.querySelector(`#tbody tr[data-id="${CSS.escape(String(it.id))}"]`);
+  if(row){row.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});}
+}
+function renderStock(){ $('#main').innerHTML=stockView(); renderBody(); }
+
+function detailPanel(f){
+  const typeSelect = (f.type==='photo'||f.type==='computed'||f.type==='stage') ? '' : `
+    <label class="fl">Field type
+      <select data-act="type" aria-label="Field type">${CUSTOM_TYPES.map(t=>`<option value="${t}"${t===f.type?' selected':''}>${TYPE_NAMES[t]}</option>`).join('')}</select>
+    </label>`;
+  let body='';
+  if(f.type==='dropdown'){
+    body=`
+      <div class="fl">Dropdown options. Rename an option and every saree using it updates.</div>
+      <ul class="optlist">
+        ${(f.options||[]).map((o,j)=>`<li>
+          <input value="${esc(o)}" data-act="optrename" data-j="${j}" aria-label="Option name">
+          <button type="button" data-act="optup" data-j="${j}" ${j===0?'disabled':''} aria-label="Move option up">↑</button>
+          <button type="button" class="danger" data-act="optdel" data-j="${j}" aria-label="Remove option">✕</button>
+        </li>`).join('') || '<li class="muted">No options yet.</li>'}
+      </ul>
+      <form class="addopt" data-optform>
+        <input name="opt" placeholder="New option, e.g. Organza" aria-label="New option">
+        <button type="submit">Add option</button>
+      </form>`;
+  } else if(f.type==='stage'){
+    body='<div class="hint">Work stages record Done or Pending and a cost on each saree.</div>';
+  } else if(f.type==='photo'||f.type==='computed'){
+    body='<div class="hint">Filled in automatically or by upload. Nothing to configure.</div>';
+  }
+  return `<div class="detail">${typeSelect}${body}</div>`;
+}
+
+function fieldsView(){
+  return `
+    <div class="panel">
+      <h2>Fields</h2>
+      <p class="hint">Tick to show a field, click ▾ to open its settings. A hidden field keeps its saved values in every record. Profit always includes all work-stage costs, even hidden ones.</p>
+      <div style="margin-top:8px">
+      ${schema.map((f,i)=>{
+        const open=openFields.has(f.key);
+        return `
+        <div class="frow ${f.enabled?'':'off'}" data-i="${i}">
+          <div class="frow-main">
+            <input type="checkbox" data-act="toggle" ${f.enabled?'checked':''} aria-label="${esc(f.label)} shown">
+            <input class="lbl-in" data-act="label" value="${esc(f.label)}" aria-label="Field name">
+            <span class="badge">${TYPE_NAMES[f.type]||f.type}</span>
+            <button type="button" class="chev" data-act="expand" aria-expanded="${open}" aria-label="${open?'Close':'Open'} settings for ${esc(f.label)}">${open?'▴':'▾'}</button>
+            <div class="moves">
+              <button type="button" data-act="up" ${i===0?'disabled':''} aria-label="Move up">↑</button>
+              <button type="button" data-act="down" ${i===schema.length-1?'disabled':''} aria-label="Move down">↓</button>
+              <button type="button" class="danger" data-act="del">Delete</button>
+            </div>
+          </div>
+          ${open?detailPanel(f):''}
+        </div>`;}).join('')}
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Add a field</h2>
+      <p class="hint">New fields appear in the stock table and the add/edit form right away.</p>
+      <form id="addField" class="addform" style="margin-top:10px">
+        <input name="label" required placeholder="Field name" aria-label="New field name">
+        <select name="type" aria-label="Field type">
+          <option value="text">Text</option><option value="number">Number</option>
+          <option value="date">Date</option><option value="dropdown">Dropdown</option>
+        </select>
+        <input name="options" placeholder="Options, comma separated (dropdown only)" aria-label="Dropdown options">
+        <button class="primary" type="submit">Add field</button>
+      </form>
+    </div>`;
+}
+
+const KEY_KARIGARS='saree-karigar-contacts-v1';
+function getKarigarContacts(){return read(KEY_KARIGARS,{} )||{};}
+function saveKarigarContacts(data){try{localStorage.setItem(KEY_KARIGARS,JSON.stringify(data));return true}catch(e){toast('Could not save karigar details');return false}}
+function normalizedName(s){return String(s||'').trim().toLocaleLowerCase();}
+function syncKarigarContacts(){
+  const contacts=getKarigarContacts();
+  for(const it of items){const v=it.values||{};const name=String(v.karigar||'').trim();if(!name)continue;const key=normalizedName(name);if(!contacts[key])contacts[key]={name,phone:'',address:''};
+    if(!contacts[key].phone) contacts[key].phone=String(v.karigarPhone||v.mobile||v.phone||'').trim();
+    if(!contacts[key].address) contacts[key].address=String(v.karigarAddress||v.address||'').trim();
+  }
+  saveKarigarContacts(contacts);return contacts;
+}
+function renderKarigars(){
+ const contacts=syncKarigarContacts();
+ const rows=Object.entries(contacts).sort((a,b)=>a[1].name.localeCompare(b[1].name)).map(([key,c])=>{
+  const count=items.filter(it=>normalizedName(it.values?.karigar)===key).length;
+  return `<tr><td>${esc(c.name)}</td><td>${esc(c.phone||'—')}</td><td>${esc(c.address||'—')}</td><td>${count}</td><td><button type="button" data-k-edit="${esc(key)}">Edit</button> <button type="button" data-k-history="${esc(key)}">Purchase history</button></td></tr>`;
+ }).join('');
+ $('#main').innerHTML=`<section class="panel" style="padding:18px"><h2>Karigar Details</h2><p class="muted">Save each karigar's contact details once. Names found in existing stock entries are added automatically.</p><form id="karigarContactForm" class="formgrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"><input type="hidden" name="key"><label>Karigar name *<input name="name" required placeholder="Full name" list="karigarNameOptions"></label><datalist id="karigarNameOptions">${[...new Set(items.map(it=>String(it.values?.karigar||'').trim()).filter(Boolean))].map(n=>`<option value="${esc(n)}">`).join('')}</datalist><label>Mobile number<input name="phone" type="tel" placeholder="Phone number"></label><label style="grid-column:1/-1">Full address<textarea name="address" rows="3" placeholder="House, street, city, PIN code"></textarea></label><div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="primary" type="submit">Save Karigar</button><button type="button" data-k-clear>Clear form</button></div></form></section><section class="panel" style="padding:18px;margin-top:16px"><h2>Saved Karigars</h2><div style="overflow:auto"><table><thead><tr><th>Name</th><th>Mobile</th><th>Address</th><th>Stock entries</th><th>Actions</th></tr></thead><tbody>${rows||'<tr><td colspan="5">No karigars saved yet.</td></tr>'}</tbody></table></div></section>`;
+}
+function loadKarigarContact(key){
+ const c=getKarigarContacts()[key];if(!c)return;const f=$('#karigarContactForm');f.elements.key.value=key;f.elements.name.value=c.name||'';f.elements.phone.value=c.phone||'';f.elements.address.value=c.address||'';f.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function showKarigarHistory(key){
+ const c=getKarigarContacts()[key];if(!c)return;const found=items.filter(it=>normalizedName(it.values?.karigar)===key).sort((a,b)=>String(a.values?.date||'').localeCompare(String(b.values?.date||'')));
+ const total=found.reduce((sum,it)=>sum+Number(it.values?.itemPrice??it.values?.price??0)*Number(it.values?.quantity??1),0);
+ const rows=found.map(it=>`<tr><td>${esc(it.values?.date||'—')}</td><td>${esc(it.id)}</td><td>${esc(it.values?.description||'—')}</td><td>${esc(it.values?.category||'—')}</td><td>${esc(it.values?.quantity??1)}</td><td>${money(it.values?.itemPrice??it.values?.price)}</td></tr>`).join('');
+ const dlg=document.createElement('div');dlg.className='kr-backdrop';dlg.style.cssText='position:fixed;inset:0;background:#0009;z-index:10000;display:grid;place-items:center;padding:18px';dlg.innerHTML=`<section style="background:var(--panel,#241d20);color:var(--text,#f5eeee);padding:20px;border-radius:12px;width:min(950px,100%);max-height:90vh;overflow:auto"><header style="display:flex;justify-content:space-between;gap:12px"><h2>Purchase History — ${esc(c.name)}</h2><button type="button" data-history-close>Close</button></header><p>Mobile: ${esc(c.phone||'—')} &nbsp; Address: ${esc(c.address||'—')}</p><div style="overflow:auto"><table><thead><tr><th>Date</th><th>Item ID</th><th>Description</th><th>Category</th><th>Qty</th><th>Purchase cost</th></tr></thead><tbody>${rows||'<tr><td colspan="6">No stock entries found for this name.</td></tr>'}</tbody></table></div><h3>Total purchase cost: ${money(total)}</h3></section>`;document.body.appendChild(dlg);dlg.addEventListener('click',e=>{if(e.target===dlg||e.target.closest('[data-history-close]'))dlg.remove()});
+}
+
+function homeView(){
+  const h=readHome();
+  const field=(key,label,help='')=>`<label class="home-field"><span>${esc(label)}</span><input name="${key}" value="${esc(h[key]??'')}" autocomplete="off">${help?`<small>${esc(help)}</small>`:''}</label>`;
+  const area=(key,label,rows=3,help='')=>`<label class="home-field wide"><span>${esc(label)}</span><textarea name="${key}" rows="${rows}">${esc(h[key]??'')}</textarea>${help?`<small>${esc(help)}</small>`:''}</label>`;
+  return `<style>.home-editor{max-width:980px}.home-editor .home-intro{color:var(--muted);margin:5px 0 16px}.home-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.home-field{display:flex;flex-direction:column;gap:5px;min-width:0}.home-field>span{font-size:12px;color:var(--muted);font-weight:600}.home-field input,.home-field textarea{width:100%;font:inherit;background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:5px;padding:10px 11px;box-sizing:border-box}.home-field textarea{resize:vertical;min-height:74px}.home-field small{font-size:11px;color:var(--muted)}.home-field.wide{grid-column:1/-1}.home-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:16px}.home-image-upload{display:flex;align-items:end;gap:14px;flex-wrap:wrap;margin:14px 0 10px}.home-image-upload .home-field{flex:1 1 260px}.home-image-upload input[type=file]{padding:8px}.home-image-upload button{min-height:40px}.home-image-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-top:14px}.home-image-card{min-width:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--bg)}.home-image-card>img{width:100%;height:190px;display:block;object-fit:cover;background:var(--surface)}.home-image-info{padding:10px;display:grid;gap:9px}.home-image-info>strong{font-size:12px;overflow-wrap:anywhere}.home-image-choice{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}.home-image-choice input{width:auto}.home-image-info button{justify-self:start}.home-image-manager{margin-top:14px}@media(max-width:600px){.home-grid{grid-template-columns:1fr}.home-field.wide{grid-column:auto}.home-image-upload{align-items:stretch}.home-image-upload button{width:100%}.home-image-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.home-image-card>img{height:150px}}@media(max-width:380px){.home-image-grid{grid-template-columns:1fr}}</style>
+  <section class="panel home-editor"><h2>Homepage content</h2><p class="home-intro">Edit the words customers see on the storefront. Save publishes them to this computer's shared database, so other devices see the same content when they refresh.</p>
+  <form id="homeForm"><div class="home-grid">
+    ${field('brandName','Store name')}${field('tagline','Short tagline')}
+    ${field('announcement','Announcement strip','Leave blank to hide the strip at the top of the shop.')}
+    ${field('eyebrow','Small hero label')}
+    ${area('heroTitle','Main headline',2,'Line breaks are supported.')}
+    ${area('heroDescription','Hero description',3)}
+    ${field('ctaText','Main button text')}
+    ${field('categoryTitle','Category section heading')}${field('categorySubtitle','Category section subheading')}
+    ${field('catalogTitle','Product section heading')}${field('catalogSubtitle','Product section subheading')}
+    ${area('aboutText','About / Our story message',4,'Shown when a customer taps “Our story”.')}
+    ${area('footerQuestion','Footer contact message',2)}${area('footerNote','Footer availability note',2)}
+  </div><div class="home-actions"><button type="button" data-action="home-reset">Reset to defaults</button><button type="submit" class="primary">Save homepage</button></div></form></section>
+  ${homeImagesView()}`;
+}
+
+function homeImagesView(){
+ const images=readHomeImages();
+ const cards=images.map(img=>`<article class="home-image-card"><img src="${esc(img.url)}" alt="${esc(img.name||'Homepage image')}" loading="lazy"><div class="home-image-info"><strong title="${esc(img.name||'Homepage image')}">${esc(img.name||'Homepage image')}</strong><label class="home-image-choice"><input type="radio" name="homeHeroImage" data-home-image-hero="${esc(img.url)}" ${img.hero?'checked':''}> Use as hero image</label><label class="home-image-choice"><input type="checkbox" data-home-image-gallery="${esc(img.url)}" ${img.showOnHome!==false?'checked':''}> Show in home gallery</label><button type="button" class="danger" data-home-image-delete="${esc(img.url)}">Remove image</button></div></article>`).join('');
+ return `<section class="panel home-editor home-image-manager"><h2>Homepage images</h2><p class="home-intro">Upload store banners, saree photos or collection pictures here. Choose one as the hero image beside your headline and select which images appear in the home-page gallery. Product photos in Stock remain separate.</p>
+ <form id="homeImageUploadForm" class="home-image-upload"><label class="home-field"><span>Choose image files</span><input name="photos" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple required><small>JPG, PNG, WEBP or GIF · max 8 MB per image · up to 8 at a time</small></label><button type="submit" class="primary" id="homeImageUploadButton">Upload images</button></form>
+ <div id="homeImageUploadStatus" class="hint" aria-live="polite"></div><div class="home-image-grid">${cards||'<p class="hint">No homepage images yet. Upload your first image above.</p>'}</div>
+ </section>`;
+}
+
+function renderAll(){
+  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===view)));
+  if(view==='stock') renderStock();
+  else if(view==='fields') $('#main').innerHTML=fieldsView();
+  else if(view==='karigars') renderKarigars();
+  else if(view==='home') $('#main').innerHTML=homeView();
+}
+
+function formFields(v){
+  return schema.filter(f=>f.enabled&&f.type!=='computed').map(f=>{
+    const id='f_'+f.key;
+    if(f.type==='stage'){
+      const x=v[f.key]||{done:false,cost:0};
+      return `<div class="field stage"><span>${esc(f.label)}</span>
+        <select name="${f.key}__status" aria-label="${esc(f.label)} status">
+          <option value="pending"${x.done?'':' selected'}>Pending</option>
+          <option value="done"${x.done?' selected':''}>Done</option>
+        </select>
+        <input type="number" min="0" step="any" name="${f.key}__cost" value="${x.cost||''}" placeholder="Cost ₹" aria-label="${esc(f.label)} cost"></div>`;
+    }
+    if(f.type==='photo'){
+      const photos=Array.isArray(editingPhoto)?editingPhoto:(editingPhoto?[editingPhoto]:[]);
+      return `<div class="field wide"><label for="photosInput">Photos (select multiple)</label>
+        <input id="photosInput" type="file" name="photo" accept="image/*" multiple>
+        <div id="photoprevwrap" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">${photos.map(src=>`<img class="thumb lg" src="${src}" alt="Existing photo">`).join('')}</div>
+        <small class="muted">You can select several photos at once. Selecting new photos replaces the saved photo set.</small></div>`;
+    }
+    if(f.key==='karigar'){
+      const contacts=syncKarigarContacts();
+      const names=Object.values(contacts).map(c=>String(c.name||'').trim()).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+      const opts=[...new Set(names)].map(n=>`<option value="${esc(n)}">`).join('');
+      return `<div class="field"><label for="${id}">${esc(f.label)}</label><input id="${id}" name="karigar" type="text" value="${esc(v.karigar||'')}" list="${id}_saved" placeholder="Choose saved karigar or type name" autocomplete="off"><datalist id="${id}_saved">${opts}</datalist><small class="muted">Add new names in the Karigar Details tab. Saved contact details fill automatically.</small></div>`;
+    }
+    if(f.key==='karigarPhone' || f.key==='karigarAddress'){
+      const isAddress=f.key==='karigarAddress';
+      return `<div class="field${isAddress?' wide':''}"><label for="${id}">${esc(f.label)}</label>${isAddress?`<textarea id="${id}" name="${f.key}" rows="2" style="width:100%;resize:vertical;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:7px 9px;box-sizing:border-box">${esc(v[f.key]||'')}</textarea>`:`<input id="${id}" name="${f.key}" type="tel" value="${esc(v[f.key]||'')}">`}</div>`;
+    }
+    if(f.type==='dropdown' && f.key==='category'){
+      const choices=(f.options||[]).map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
+      return `<div class="field"><label for="${id}_preset">${esc(f.label)} — choose or type</label>
+        <select id="${id}_preset" aria-label="Choose a saved category"><option value="">Choose a category…</option>${choices}</select>
+        <input id="${id}" name="${f.key}" type="text" value="${esc(v[f.key]||'')}" placeholder="Or type a new category" style="margin-top:6px;width:100%" list="${id}_options" aria-label="Type or edit category">
+        <datalist id="${id}_options">${choices}</datalist><small class="muted">Choose from the dropdown or type any new category.</small></div>`;
+    }
+    if(f.type==='dropdown'){
+      return `<div class="field"><label for="${id}">${esc(f.label)}</label>
+        <select id="${id}" name="${f.key}"><option value="">—</option>${(f.options||[]).map(o=>opt(o,v[f.key])).join('')}</select></div>`;
+    }
+    if(f.type==='number'){
+      return `<div class="field"><label for="${id}">${esc(f.label)}</label>
+        <input id="${id}" type="number" min="0" step="any" name="${f.key}" value="${v[f.key]??''}"></div>`;
+    }
+    if(f.type==='date'){
+      return `<div class="field"><label for="${id}">${esc(f.label)}</label>
+        <input id="${id}" type="date" name="${f.key}" value="${esc(v[f.key]||'')}"></div>`;
+    }
+    return f.key==='description' ? `<div class="field wide"><label for="${id}">${esc(f.label)} / More details</label><textarea id="${id}" name="${f.key}" rows="3" style="width:100%;resize:vertical;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:7px 9px;box-sizing:border-box">${esc(v[f.key]||'')}</textarea></div>` : `<div class="field"><label for="${id}">${esc(f.label)}</label><input id="${id}" type="text" name="${f.key}" value="${esc(v[f.key]||'')}"></div>`;
+  }).join('');
+}
+
+function openForm(id){
+  editingId=id;
+  const it=items.find(i=>i.id===id);
+  const v=it?it.values:{date:todayStr()};
+  editingPhoto=it?.photo||null;
+  $('#dlgTitle').textContent=it?'Edit saree':'Add saree';
+  $('#itemForm').innerHTML=`
+    <div class="grid">${formFields(v)}</div>
+    <div class="dlgfoot">
+      <span class="live">Profit: <b id="live">—</b></span>
+      <div class="btns">
+        <button type="button" id="printSpecificBtn">Generate This Item Form</button>
+        ${it?'<button type="button" class="danger" id="delBtn">Delete</button>':''}
+        <button type="button" id="cancelBtn">Cancel</button>
+        <button class="primary" type="submit">Save</button>
+      </div>
+    </div>`;
+  updateLive();
+  $('#dlg').showModal();
+}
+
+
+function printSpecificItemForm(){
+  const form=$('#itemForm');
+  const vals={...(items.find(i=>i.id===editingId)?.values||{}),...readForm(form)};
+  const photos=Array.isArray(editingPhoto)?editingPhoto:(editingPhoto?[editingPhoto]:[]);
+  const files=[...(form.elements.photo?.files||[])];
+  const open=window.open('','_blank');
+  if(!open){toast('Please allow pop-ups to generate the item form');return;}
+  const rows=schema.filter(f=>f.enabled&&f.type!=='photo'&&f.type!=='computed').map(f=>{
+    let value=vals[f.key];
+    if(f.type==='stage') value=value&&typeof value==='object'?`${value.done?'Done':'Pending'}${value.cost!=null?' — '+money(value.cost):''}`:(value||'Pending');
+    else if(value==null||value==='') value='—';
+    else if(f.type==='date' && /^\d{4}-\d{2}-\d{2}$/.test(String(value))) value=new Date(value+'T00:00:00').toLocaleDateString('en-IN');
+    return `<tr><th>${esc(f.label)}</th><td>${esc(String(value))}</td></tr>`;
+  }).join('');
+  const photoHtml=photos.map(src=>`<img src="${src}" style="max-width:140px;max-height:160px;object-fit:contain;margin:5px">`).join('')||'<span>Photos will appear here after saved images are loaded.</span>';
+  open.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Item Details Form</title><style>body{font:13px Arial,sans-serif;color:#222;margin:24px}h1,h2{text-align:center;margin:5px}.head{border-bottom:2px solid #6b1830;padding-bottom:12px;margin-bottom:16px}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #999;padding:8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{width:28%;background:#f3e9df}.photos{border:1px solid #999;padding:10px;margin:12px 0;min-height:80px}.sign{display:flex;justify-content:space-between;margin-top:45px}@media print{button{display:none}}</style></head><body><div class="head"><h1>SHREE SHIVAM SAREES</h1><h2>ITEM DETAILS FORM</h2><p style="text-align:center">CK 23/23, Vijay Shree Market, 1st Floor</p></div><table><tbody><tr><th>Serial / Item ID</th><td>${esc(editingId||'New item — save first to assign ID')}</td></tr>${rows}</tbody></table><h3>Item Photos</h3><div class="photos">${photoHtml}</div><div class="sign"><span>Karigar Signature: __________________</span><span>Authorized Signature: __________________</span></div><p><button onclick="window.print()">Print / Save as PDF</button></p><script>window.onload=()=>setTimeout(()=>window.print(),350)<\/script></body></html>`);
+  open.document.close();
+  if(files.length) toast('Save the item first if you want newly selected photos included in the printed form');
+}
+
+function readForm(form){
+  const fd=new FormData(form), out={};
+  schema.filter(f=>f.enabled&&f.type!=='computed'&&f.type!=='photo').forEach(f=>{
+    if(f.type==='stage') out[f.key]={done:fd.get(f.key+'__status')==='done',cost:Number(fd.get(f.key+'__cost')||0)};
+    else if(f.type==='number'){const n=fd.get(f.key); out[f.key]=(n===null||n==='')?null:Number(n);}
+    else out[f.key]=String(fd.get(f.key)??'');
+  });
+  return out;
+}
+
+function updateLive(){
+  const it=items.find(i=>i.id===editingId);
+  const merged={...(it?.values||{}),...readForm($('#itemForm'))};
+  const p=profitOf(merged), el=$('#live');
+  if(!el) return;
+  el.textContent=money(p);
+  el.className=p<0?'neg':'pos';
+}
+
+function shrink(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onerror=reject;
+    r.onload=()=>{
+      const img=new Image();
+      img.onerror=reject;
+      img.onload=()=>{
+        const s=Math.min(1,480/Math.max(img.width,img.height));
+        const c=document.createElement('canvas');
+        c.width=Math.round(img.width*s); c.height=Math.round(img.height*s);
+        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+        resolve(c.toDataURL('image/jpeg',0.8));
+      };
+      img.src=r.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+
+function openKarigarReport(){
+  const names=[...new Set(items.map(it=>String(it.values?.karigar||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  if(!names.length){toast('Add a karigar name to at least one item first');return;}
+  document.getElementById('karigarReportDialog')?.remove();
+  const dialog=document.createElement('div'); dialog.id='karigarReportDialog';
+  dialog.innerHTML=`<div class="kr-backdrop"></div><section class="kr-modal" role="dialog" aria-modal="true" aria-labelledby="krTitle"><header><h2 id="krTitle">Karigar Purchase Form</h2><button type="button" data-kr-close aria-label="Close">✕</button></header><div class="kr-body"><label>Karigar name<select id="krName"><option value="">Select karigar</option>${names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}</select></label><h3>Karigar Details</h3><label>Mobile number<input id="krPhone" type="tel" placeholder="Enter mobile number"></label><label>Address<textarea id="krAddress" rows="2" placeholder="Enter full address"></textarea></label><label>Items to include<select id="krMode"><option value="1">One date</option><option value="2">Between two dates</option><option value="3">All dates</option></select></label><div id="krSingleWrap"><label>Entry date<input id="krSingleDate" type="date"></label></div><div id="krRangeWrap" hidden><label>Start date<input id="krStart" type="date"></label><label>End date<input id="krEnd" type="date"></label></div><p class="kr-hint">Mobile number and address auto-fill from saved records with the same karigar name. You can edit them here for this report.</p></div><footer><button type="button" data-kr-close>Cancel</button><button type="button" class="primary" id="krGenerate">Generate Form / PDF</button></footer></section>`;
+  document.body.appendChild(dialog);
+  const $id=id=>dialog.querySelector('#'+id);
+  const close=()=>dialog.remove(); dialog.querySelectorAll('[data-kr-close],.kr-backdrop').forEach(el=>el.addEventListener('click',close));
+  const fillContact=()=>{const name=$id('krName').value.toLowerCase();const matched=items.filter(it=>String(it.values?.karigar||'').trim().toLowerCase()===name).map(it=>it.values||{});$id('krPhone').value=matched.map(v=>String(v.karigarPhone||v.mobile||v.phone||'').trim()).find(Boolean)||'';$id('krAddress').value=matched.map(v=>String(v.karigarAddress||v.address||'').trim()).find(Boolean)||'';const dates=matched.map(v=>String(v.date||'').trim()).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort();$id('krSingleDate').value=dates[dates.length-1]||todayStr();$id('krStart').value=dates[0]||todayStr();$id('krEnd').value=dates[dates.length-1]||todayStr();};
+  $id('krName').addEventListener('change',fillContact);
+  $id('krMode').addEventListener('change',()=>{$id('krSingleWrap').hidden=$id('krMode').value!=='1';$id('krRangeWrap').hidden=$id('krMode').value!=='2';});
+  $id('krGenerate').addEventListener('click',()=>{
+    const name=$id('krName').value;if(!name){toast('Select a karigar name');return;}
+    const matching=items.filter(it=>String(it.values?.karigar||'').trim().toLowerCase()===name.toLowerCase());
+    const mode=$id('krMode').value;let rows=[],rangeLabel='';
+    const validDate=d=>/^\d{4}-\d{2}-\d{2}$/.test(String(d||''));
+    if(mode==='1'){const d=$id('krSingleDate').value;if(!validDate(d)){toast('Select a date');return;}rows=matching.filter(it=>String(it.values?.date||'').trim()===d);rangeLabel='Selected date: '+d;}
+    else if(mode==='2'){const a=$id('krStart').value,b=$id('krEnd').value;if(!validDate(a)||!validDate(b)||a>b){toast('Choose a valid start and end date');return;}rows=matching.filter(it=>{const d=String(it.values?.date||'').trim();return d>=a&&d<=b;});rangeLabel=a+' to '+b;}
+    else {rows=matching.slice();rangeLabel='All dates';}
+    if(!rows.length){toast('No items found for this karigar in the selected date selection');return;}
+    const showDate=d=>/^\d{4}-\d{2}-\d{2}$/.test(String(d||''))?new Date(d+'T00:00:00').toLocaleDateString('en-IN'):String(d||'—');
+    const itemBlocks=rows.map((it,i)=>{const v=it.values||{};const photos=Array.isArray(it.photo)?it.photo:(it.photo?[it.photo]:[]);const photo=photos.map(src=>`<img src="${src}" alt="Item photo" style="max-width:130px;max-height:150px;object-fit:contain;margin:4px">`).join('')||'No photo saved';const fields=[['Entry Date',showDate(v.date)],['Serial / Item ID',it.id],['Saree Name / Design',v.description||v.productName||v.name||'—'],['Category',v.category||'—'],['Quantity',v.quantity??1],['Purchase Cost per item',money(v.itemPrice??v.price)]];return `<section class="item"><h3>Item ${i+1}</h3><table><tbody>${fields.map(([label,value])=>`<tr><th>${esc(label)}</th><td>${esc(value)}</td></tr>`).join('')}<tr><th>Photos</th><td class="photos">${photo}</td></tr></tbody></table></section>`;}).join('');
+    const total=rows.reduce((n,it)=>n+Number(it.values?.itemPrice??it.values?.price??0)*Number(it.values?.quantity??1),0);
+    const phone=$id('krPhone').value.trim()||'________________________';const address=$id('krAddress').value.trim()||'____________________________________________';
+    const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print/save the PDF');return;}
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Shree Shivam Sarees - Karigar Form</title><style>body{font:12px Arial,sans-serif;color:#222;margin:24px}h1,h2{text-align:center;margin:4px}.head{border-bottom:2px solid #6b1830;padding-bottom:12px;margin-bottom:16px}table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:8px}th,td{border:1px solid #999;padding:8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{width:28%;background:#f3e9df}.item{margin:18px 0;page-break-inside:avoid}.item h3{margin:0;background:#eee5e1;padding:8px}.photos{min-height:75px}.total{text-align:right;font-size:15px;font-weight:bold;margin-top:18px}.sign{display:flex;justify-content:space-between;gap:40px;margin-top:60px}.sign span{width:45%;border-top:1px solid #333;padding-top:8px;text-align:center}@media print{button{display:none}.item{page-break-inside:avoid}}</style></head><body><div class="head"><h1>SHREE SHIVAM SAREES</h1><h2>KARIGAR PURCHASE FORM</h2><p style="text-align:center">CK 23/23, Vijay Shree Market, 1st Floor</p></div><h3>Karigar Details</h3><table><tbody><tr><th>Karigar Name</th><td>${esc(name)}</td></tr><tr><th>Mobile Number</th><td>${esc(phone)}</td></tr><tr><th>Address</th><td>${esc(address)}</td></tr></tbody></table>${itemBlocks}<p class="total">Total Purchase Cost: ${money(total)}</p><div class="sign"><span>Karigar Signature</span><span>Authorized Signature</span></div><p style="margin-top:24px"><button onclick="window.print()">Print / Save as PDF</button></p><script>window.onload=()=>setTimeout(()=>window.print(),400)<\/script></body></html>`);w.document.close();
+    close();
+  });
+}
+
+
+// Save Karigar contact details separately so they persist independently of item dates.
+document.addEventListener('submit',e=>{
+ if(e.target.id!=='karigarContactForm') return;
+ e.preventDefault();const f=e.target;const name=f.elements.name.value.trim();if(!name){toast('Enter karigar name');return;}
+ const contacts=getKarigarContacts();const oldKey=f.elements.key.value;const key=normalizedName(name);const previous=oldKey?contacts[oldKey]:null;
+ contacts[key]={name,phone:f.elements.phone.value.trim(),address:f.elements.address.value.trim()};
+ if(oldKey&&oldKey!==key) delete contacts[oldKey];
+ if(!saveKarigarContacts(contacts))return;
+ // Keep the same contact fields in all existing stock rows with this karigar name for compatibility.
+ for(const it of items){if(normalizedName(it.values?.karigar)===key){it.values.karigar=name;it.values.karigarPhone=contacts[key].phone;it.values.karigarAddress=contacts[key].address;}}
+ persist();toast('Karigar details saved');renderKarigars();
+});
+
+// Event wiring (delegated, so re-rendered content keeps working)
+document.querySelector('.tabs').addEventListener('click',e=>{
+  const b=e.target.closest('[data-tab]'); if(!b) return;
+  view=b.dataset.tab; renderAll();
+});
+
+$('#main').addEventListener('click',e=>{
+  const t=e.target;
+  if(t.closest('[data-action="home-reset"]')){
+    try{localStorage.setItem(KEY_HOME,JSON.stringify(HOME_DEFAULTS));renderAll();toast('Homepage reset to defaults');}
+    catch(err){toast('Could not reset homepage content');}
+    return;
+  }
+  if(t.closest('[data-k-edit]')) return loadKarigarContact(t.closest('[data-k-edit]').dataset.kEdit);
+  if(t.closest('[data-k-history]')) return showKarigarHistory(t.closest('[data-k-history]').dataset.kHistory);
+  if(t.closest('[data-k-clear]')) { $('#karigarContactForm')?.reset(); if($('#karigarContactForm')) $('#karigarContactForm').elements.key.value=''; return; }
+
+  if(t.closest('[data-action="karigar-report"]')) return openKarigarReport();
+  if(t.closest('[data-action="add"]')) return openForm(null);
+  if(t.closest('[data-action="clear-find"]')){selectedFindId=null;findQuery='';const inp=$('#findItemQuery');if(inp)inp.value='';return renderBody();}
+  if(t.closest('[data-action="clear-filters"]')){Object.assign(finder,{q:'',priceExact:'',priceMin:'',priceMax:'',category:'',mode:'filter'});return renderStock();}
+  if(t.closest('[data-action="find-sort-price"]')){ if(sortKey==='price') sortDir=-sortDir; else {sortKey='price';sortDir=1;} return renderBody(); }
+  const findBtn=t.closest('[data-action="choose-find"]');if(findBtn){selectFoundItem(findBtn.dataset.id);return;}
+  if(t.closest('[data-action="dir"]')){ sortDir=-sortDir; return renderBody(); }
+  const th=t.closest('th[data-sort]');
+  if(th){
+    const k=th.dataset.sort;
+    sortDir=sortKey===k?-sortDir:1; sortKey=k;
+    return renderBody();
+  }
+  const tr=t.closest('tbody tr[data-id]');
+  if(tr) return openForm(tr.dataset.id);
+  const btn=t.closest('button[data-act]');
+  if(!btn) return;
+  const row=btn.closest('.frow'), i=+row.dataset.i, f=schema[i], act=btn.dataset.act, j=+btn.dataset.j;
+  switch(act){
+    case 'expand':
+      openFields.has(f.key)?openFields.delete(f.key):openFields.add(f.key);
+      return renderAll();
+    case 'up':
+      if(i>0) [schema[i-1],schema[i]]=[schema[i],schema[i-1]]; break;
+    case 'down':
+      if(i<schema.length-1) [schema[i],schema[i+1]]=[schema[i+1],schema[i]]; break;
+    case 'del':
+      if(!btn.dataset.armed){btn.dataset.armed='1';btn.textContent='Confirm';return;}
+      schema.splice(i,1); break;
+    case 'optup':
+      if(j>0&&f.options) [f.options[j-1],f.options[j]]=[f.options[j],f.options[j-1]]; break;
+    case 'optdel':
+      if(f.options) f.options.splice(j,1); break;
+    default: return;
+  }
+  persist(); renderAll();
+});
+
+$('#main').addEventListener('input',e=>{
+  if(e.target.id==='q'){filters.q=e.target.value; renderBody();}
+  if(e.target.id==='findItemQuery'){findQuery=e.target.value;renderFindResults();}
+  if(e.target.id==='finderQuery'){finder.q=e.target.value;renderBody();}
+  if(e.target.id==='finderExact'){finder.priceExact=e.target.value;renderBody();}
+  if(e.target.id==='finderMin'){finder.priceMin=e.target.value;renderBody();}
+  if(e.target.id==='finderMax'){finder.priceMax=e.target.value;renderBody();}
+  if(e.target.id==='finderCategory'){finder.category=e.target.value;renderBody();}
+});
+
+$('#main').addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='sortKey'){ sortKey=t.value; return renderBody(); }
+  if(t.id==='finderMode'){finder.mode=t.value;return renderBody();}
+  if(t.dataset.filter){filters[t.dataset.filter]=t.value; return renderBody();}
+  const row=t.closest('.frow'); if(!row) return;
+  const f=schema[+row.dataset.i];
+  switch(t.dataset.act){
+    case 'toggle': f.enabled=t.checked; break;
+    case 'label': f.label=t.value.trim()||f.label; break;
+    case 'type':
+      f.type=t.value;
+      if(f.type==='dropdown'&&!f.options) f.options=[];
+      if(f.type!=='dropdown') delete f.options;
+      break;
+    case 'optrename': {
+      const old=f.options[+t.dataset.j], neu=t.value.trim();
+      if(!neu||neu===old){ t.value=old; return; }
+      f.options[+t.dataset.j]=neu;
+      // Keep existing records pointing at the renamed option.
+      items.forEach(it=>{ if(it.values[f.key]===old) it.values[f.key]=neu; });
+      break;
+    }
+    default: return;
+  }
+  persist(); renderAll();
+});
+
+$('#main').addEventListener('submit',e=>{
+  if(e.target.matches('[data-optform]')){
+    e.preventDefault();
+    const row=e.target.closest('.frow'), f=schema[+row.dataset.i];
+    const name=String(new FormData(e.target).get('opt')||'').trim();
+    if(!name) return;
+    if(!f.options) f.options=[];
+    if(f.options.includes(name)){ toast('That option already exists'); return; }
+    f.options.push(name);
+    persist(); renderAll(); toast('Option added');
+    return;
+  }
+  if(e.target.id!=='addField') return;
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const label=String(fd.get('label')||'').trim();
+  if(!label) return;
+  const type=String(fd.get('type'));
+  const f={key:'custom_'+Date.now().toString(36),label,type,enabled:true};
+  if(type==='dropdown') f.options=String(fd.get('options')||'').split(',').map(s=>s.trim()).filter(Boolean);
+  schema.push(f);
+  persist(); renderAll(); toast('Field added');
+});
+
+function autofillKarigarContact(force=false){
+  const name=$('#f_karigar')?.value?.trim(); if(!name)return;
+  const c=getKarigarContacts()[normalizedName(name)]; if(!c)return;
+  const phone=$('#f_karigarPhone'), address=$('#f_karigarAddress');
+  if(phone&&(force||!phone.value.trim()))phone.value=c.phone||phone.value;
+  if(address&&(force||!address.value.trim()))address.value=c.address||address.value;
+}
+$('#main').addEventListener('submit',e=>{
+  if(e.target.id!=='homeForm') return;
+  e.preventDefault();
+  const fd=new FormData(e.target), next={};
+  Object.keys(HOME_DEFAULTS).forEach(k=>{next[k]=String(fd.get(k)??'').trim()});
+  try{localStorage.setItem(KEY_HOME,JSON.stringify(next));renderAll();toast('Homepage saved');}
+  catch(err){toast('Could not save homepage content. Please retry.');}
+});
+
+$('#main').addEventListener('submit',async e=>{
+  if(e.target.id!=='homeImageUploadForm') return;
+  e.preventDefault();
+  const form=e.target, input=form.elements.photos, button=$('#homeImageUploadButton'), status=$('#homeImageUploadStatus');
+  const files=[...(input.files||[])];
+  if(!files.length){toast('Choose at least one image');return;}
+  if(files.some(file=>file.size>8*1024*1024)){toast('Each image must be 8 MB or smaller');return;}
+  if(files.length>8){toast('Upload up to 8 images at a time');return;}
+  const fd=new FormData();files.forEach(file=>fd.append('photos',file,file.name));
+  button.disabled=true;button.textContent='Uploading…';if(status)status.textContent='Uploading images. Please keep this page open.';
+  try{
+    const response=await fetch('/api/home-images/upload',{method:'POST',body:fd});
+    let result={};try{result=await response.json()}catch(_e){}
+    if(!response.ok)throw new Error(result.error||'Upload failed');
+    const current=readHomeImages();
+    const added=(result.images||[]).map((img,i)=>({name:img.name,url:img.url,hero:false,showOnHome:true}));
+    const firstHero=!current.some(img=>img.hero)&&added.length>0;
+    if(firstHero)added[0].hero=true;
+    if(!saveHomeImages([...current,...added]))throw new Error('Image files uploaded, but settings could not be saved. Please reload and check the homepage images list.');
+    renderAll();toast(`${added.length} image${added.length===1?'':'s'} uploaded`);
+  }catch(err){if(status)status.textContent=err.message||'Could not upload images';toast(err.message||'Could not upload images');}
+  finally{const b=$('#homeImageUploadButton');if(b){b.disabled=false;b.textContent='Upload images';}}
+});
+
+$('#main').addEventListener('change',e=>{
+  const hero=e.target.closest('[data-home-image-hero]');
+  if(hero){const url=hero.dataset.homeImageHero;const images=readHomeImages().map(img=>({...img,hero:img.url===url}));if(saveHomeImages(images)){renderAll();toast('Hero image updated');}return;}
+  const gallery=e.target.closest('[data-home-image-gallery]');
+  if(gallery){const url=gallery.dataset.homeImageGallery;const images=readHomeImages().map(img=>img.url===url?{...img,showOnHome:gallery.checked}:img);if(saveHomeImages(images)){renderAll();toast('Homepage gallery updated');}return;}
+});
+
+$('#main').addEventListener('click',async e=>{
+  const button=e.target.closest('[data-home-image-delete]');if(!button)return;
+  const url=button.dataset.homeImageDelete;const filename=url.split('/').pop();
+  if(!confirm('Remove this image from the homepage and delete the uploaded file?'))return;
+  button.disabled=true;
+  try{
+    const response=await fetch('/api/home-images?name='+encodeURIComponent(filename),{method:'DELETE'});
+    let result={};try{result=await response.json()}catch(_e){}
+    if(!response.ok)throw new Error(result.error||'Could not remove image');
+    let images=readHomeImages().filter(img=>img.url!==url);
+    if(images.length&&!images.some(img=>img.hero))images[0]={...images[0],hero:true};
+    if(!saveHomeImages(images))throw new Error('Image removed from disk, but homepage settings could not be saved.');
+    renderAll();toast('Homepage image removed');
+  }catch(err){toast(err.message||'Could not remove image');button.disabled=false;}
+});
+
+$('#itemForm').addEventListener('input',e=>{if(e.target.id==='f_karigar')autofillKarigarContact(true);updateLive();});
+$('#itemForm').addEventListener('change',e=>{
+  if(e.target.id==='f_karigar')autofillKarigarContact(true);
+  if(e.target.id==='f_category_preset' && e.target.value){const input=$('#f_category'); if(input){input.value=e.target.value; updateLive();}}
+  if(e.target.name==='photo'&&e.target.files.length){
+    const wrap=$('#photoprevwrap'); wrap.innerHTML='';
+    [...e.target.files].forEach(file=>{const img=document.createElement('img');img.className='thumb lg';img.alt='Photo preview';img.src=URL.createObjectURL(file);wrap.appendChild(img);});
+  }
+});
+$('#itemForm').addEventListener('click',e=>{
+  if(e.target.id==='printSpecificBtn') return printSpecificItemForm();
+  if(e.target.id==='cancelBtn') return $('#dlg').close();
+  if(e.target.id==='delBtn'){
+    const b=e.target;
+    if(!b.dataset.armed){b.dataset.armed='1';b.textContent='Confirm delete';return;}
+    items=items.filter(i=>i.id!==editingId);
+    persist(); $('#dlg').close(); renderAll(); toast('Deleted');
+  }
+});
+$('#itemForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const form=e.currentTarget;
+  const old=items.find(i=>i.id===editingId);
+  const values={...(old?.values||{}),...readForm(form)};
+  let photo=old?.photo||null;
+  const files=[...(form.elements.photo?.files||[])];
+  if(files.length){
+    try{photo=await Promise.all(files.map(file=>shrink(file)));}catch(err){toast('Could not read one or more photos');return;}
+  }
+  if(old) Object.assign(old,{values,photo});
+  else items.unshift({id:uid(),values,photo});
+  persist(); $('#dlg').close(); renderAll(); toast('Saved');
+});
+
+renderAll();
+</script>
+
+</body></html>
