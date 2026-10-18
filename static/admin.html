@@ -136,8 +136,8 @@ dialog::backdrop{background:rgb(0 0 0 / .45)}
 <script>
 const KEY_SCHEMA='saree-schema-v1', KEY_ITEMS='saree-items-v1', KEY_HOME='saree-home-content-v1', KEY_HOME_IMAGES='saree-home-images-v1';
 const STAGES=[['fal','Fal'],['piko','Piko'],['cutting','Cutting'],['jalar','Jalar'],['dag','Dag'],['finishing','Finishing'],['die','Die'],['raffu','Raffu'],['polish','Polish']];
-const TYPE_NAMES={text:'Text',number:'Number',date:'Date',dropdown:'Dropdown',stage:'Work stage',photo:'Photo',computed:'Auto'};
-const CUSTOM_TYPES=['text','number','date','dropdown'];
+const TYPE_NAMES={text:'Text',number:'Number',date:'Date',dropdown:'Dropdown',workstage:'Work stage (choose or type)',textdropdown:'Text + Dropdown',stage:'Work stage status + cost',photo:'Photo',computed:'Auto'};
+const CUSTOM_TYPES=['text','number','date','dropdown','textdropdown','workstage'];
 const HOME_DEFAULTS={brandName:'Saree Stock',tagline:'Tradition in every drape',announcement:'A little elegance goes a long way — discover your next favourite drape.',eyebrow:'The saree collection',heroTitle:'Timeless elegance.\nMade for your moments.',heroDescription:'Explore detailed product information, browse by fabric and occasion, and find a saree that feels made for your moment. Product details and prices are maintained by our store team.',ctaText:'Explore collection',categoryTitle:'Shop by category',categorySubtitle:'Find your style',catalogTitle:'Our sarees',catalogSubtitle:'Photos, pricing and details in one place',aboutText:'Saree Stock is a thoughtfully curated collection of sarees for everyday elegance, family celebrations and special moments. Browse the catalogue for product details and contact the store to confirm availability.',footerQuestion:'Questions about a product? Contact the store owner.',footerNote:'Product availability and prices are subject to confirmation.'};
 function readHome(){const saved=read(KEY_HOME,{});return {...HOME_DEFAULTS,...(saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:{})}}
 function readHomeImages(){const saved=read(KEY_HOME_IMAGES,[]);return Array.isArray(saved)?saved.filter(x=>x&&typeof x.url==='string'&&x.url.startsWith('/uploads/home-')):[]}
@@ -161,6 +161,7 @@ function defaultSchema(){
     {key:'karigarAddress',label:'Karigar Address',type:'text',enabled:true,builtin:true},
     {key:'category',label:'Category',type:'dropdown',options:['Silk','Kanjivaram','Chiffon','Cotton','Georgette'],enabled:true,builtin:true},
     {key:'description',label:'Description',type:'text',enabled:true,builtin:true},
+    {key:'quantity',label:'Stock Quantity',type:'number',enabled:true,builtin:true},
     {key:'price',label:'Sale Price',type:'number',money:true,enabled:true,builtin:true},
     {key:'itemPrice',label:'Item Price',type:'number',money:true,enabled:true,builtin:true},
     {key:'calendar',label:'Calendar',type:'date',enabled:true,builtin:true},
@@ -192,6 +193,7 @@ function persist(){
 
 let schema=read(KEY_SCHEMA,null)||defaultSchema();
 // Add new built-in fields to existing saved schemas without deleting user fields.
+if (!schema.some(x=>x.key==='quantity')) { const at=schema.findIndex(x=>x.key==='description'); schema.splice(at<0?schema.length:at+1,0,{key:'quantity',label:'Stock Quantity',type:'number',enabled:true,builtin:true}); try { localStorage.setItem(KEY_SCHEMA,JSON.stringify(schema)); } catch(e) {} }
 for (const f of defaultSchema().filter(x=>['karigarPhone','karigarAddress'].includes(x.key))) {
   if (!schema.some(x=>x.key===f.key)) schema.splice(Math.max(0,schema.findIndex(x=>x.key==='category')),0,f);
 }
@@ -307,11 +309,13 @@ function stockView(){
 function renderStats(){
   const s=$('#stats'); if(!s) return;
   const unsold=items.filter(i=>i.values.sold!=='Sold').length;
+  const totalQty=items.reduce((n,i)=>n+Math.max(0,Number(i.values?.quantity??1)||0),0);
   const pending=items.filter(i=>i.values.paymentStatus==='Pending').length;
   const profit=items.reduce((n,i)=>n+profitOf(i.values),0);
   s.innerHTML=`
-    <div class="stat"><b>${items.length}</b><span>Saree records</span></div>
-    <div class="stat"><b>${unsold}</b><span>Unsold</span></div>
+    <div class="stat"><b>${items.length}</b><span>Saree records / designs</span></div>
+    <div class="stat"><b>${totalQty.toLocaleString('en-IN')}</b><span>Total stock quantity (all records)</span></div>
+    <div class="stat"><b>${unsold}</b><span>Unsold records</span></div>
     <div class="stat"><b>${pending}</b><span>Payment pending</span></div>
     <div class="stat"><b class="${profit<0?'neg':''}">${money(profit)}</b><span>Total profit</span></div>`;
 }
@@ -362,7 +366,7 @@ function detailPanel(f){
       <select data-act="type" aria-label="Field type">${CUSTOM_TYPES.map(t=>`<option value="${t}"${t===f.type?' selected':''}>${TYPE_NAMES[t]}</option>`).join('')}</select>
     </label>`;
   let body='';
-  if(f.type==='dropdown'){
+  if(f.type==='dropdown'||f.type==='workstage'||f.type==='textdropdown'){
     body=`
       <div class="fl">Dropdown options. Rename an option and every saree using it updates.</div>
       <ul class="optlist">
@@ -416,7 +420,7 @@ function fieldsView(){
         <input name="label" required placeholder="Field name" aria-label="New field name">
         <select name="type" aria-label="Field type">
           <option value="text">Text</option><option value="number">Number</option>
-          <option value="date">Date</option><option value="dropdown">Dropdown</option>
+          <option value="date">Date</option><option value="dropdown">Dropdown</option><option value="textdropdown">Text + Dropdown</option><option value="workstage">Work stage (choose or type)</option>
         </select>
         <input name="options" placeholder="Options, comma separated (dropdown only)" aria-label="Dropdown options">
         <button class="primary" type="submit">Add field</button>
@@ -520,6 +524,20 @@ function formFields(v){
     if(f.key==='karigarPhone' || f.key==='karigarAddress'){
       const isAddress=f.key==='karigarAddress';
       return `<div class="field${isAddress?' wide':''}"><label for="${id}">${esc(f.label)}</label>${isAddress?`<textarea id="${id}" name="${f.key}" rows="2" style="width:100%;resize:vertical;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:7px 9px;box-sizing:border-box">${esc(v[f.key]||'')}</textarea>`:`<input id="${id}" name="${f.key}" type="tel" value="${esc(v[f.key]||'')}">`}</div>`;
+    }
+    if(f.type==='textdropdown'){
+      const choices=(f.options||[]).map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
+      return `<div class="field"><label for="${id}">${esc(f.label)} — dropdown or text</label>
+        <select id="${id}_preset" aria-label="Choose a saved ${esc(f.label)}"><option value="">Choose…</option>${(f.options||[]).map(o=>`<option value="${esc(o)}"${o===v[f.key]?' selected':''}>${esc(o)}</option>`).join('')}</select>
+        <input id="${id}" name="${f.key}" type="text" value="${esc(v[f.key]||'')}" placeholder="Or type a new value" style="margin-top:6px;width:100%" list="${id}_options" aria-label="Type or edit ${esc(f.label)}">
+        <datalist id="${id}_options">${choices}</datalist><small class="muted">Choose a saved option or type any new value.</small></div>`;
+    }
+    if(f.type==='workstage'){
+      const choices=(f.options||[]).map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
+      return `<div class="field"><label for="${id}">${esc(f.label)} — choose or type</label>
+        <select id="${id}_preset" aria-label="Choose a saved ${esc(f.label)}"><option value="">Choose…</option>${(f.options||[]).map(o=>`<option value="${esc(o)}"${o===v[f.key]?' selected':''}>${esc(o)}</option>`).join('')}</select>
+        <input id="${id}" name="${f.key}" type="text" value="${esc(v[f.key]||'')}" placeholder="Or type a new stage" style="margin-top:6px;width:100%" list="${id}_options" aria-label="Type or edit ${esc(f.label)}">
+        <datalist id="${id}_options">${choices}</datalist><small class="muted">Choose a saved option or type any new work stage.</small></div>`;
     }
     if(f.type==='dropdown' && f.key==='category'){
       const choices=(f.options||[]).map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
@@ -739,6 +757,7 @@ $('#main').addEventListener('input',e=>{
 $('#main').addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='sortKey'){ sortKey=t.value; return renderBody(); }
+  if(t.id.startsWith('f_')&&t.id.endsWith('_preset')){const target=document.getElementById(t.id.slice(0,-7));if(target&&t.value)target.value=t.value;return;}
   if(t.id==='finderMode'){finder.mode=t.value;return renderBody();}
   if(t.dataset.filter){filters[t.dataset.filter]=t.value; return renderBody();}
   const row=t.closest('.frow'); if(!row) return;
@@ -748,8 +767,8 @@ $('#main').addEventListener('change',e=>{
     case 'label': f.label=t.value.trim()||f.label; break;
     case 'type':
       f.type=t.value;
-      if(f.type==='dropdown'&&!f.options) f.options=[];
-      if(f.type!=='dropdown') delete f.options;
+      if((f.type==='dropdown'||f.type==='workstage'||f.type==='textdropdown')&&!f.options) f.options=(f.type==='workstage'?['Fal','Piko','Cutting','Jalar','Dag','Finishing','Die','Raffu','Polish']:[]);
+      if(f.type!=='dropdown'&&f.type!=='workstage'&&f.type!=='textdropdown') delete f.options;
       break;
     case 'optrename': {
       const old=f.options[+t.dataset.j], neu=t.value.trim();
@@ -783,7 +802,7 @@ $('#main').addEventListener('submit',e=>{
   if(!label) return;
   const type=String(fd.get('type'));
   const f={key:'custom_'+Date.now().toString(36),label,type,enabled:true};
-  if(type==='dropdown') f.options=String(fd.get('options')||'').split(',').map(s=>s.trim()).filter(Boolean);
+  if(type==='dropdown'||type==='workstage'||type==='textdropdown') f.options=String(fd.get('options')||(type==='workstage'?'Fal, Piko, Cutting, Jalar, Dag, Finishing, Die, Raffu, Polish':'')).split(',').map(s=>s.trim()).filter(Boolean);
   schema.push(f);
   persist(); renderAll(); toast('Field added');
 });
