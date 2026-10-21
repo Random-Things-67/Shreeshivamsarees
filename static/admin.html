@@ -117,6 +117,7 @@ dialog::backdrop{background:rgb(0 0 0 / .45)}
   <nav class="tabs" aria-label="Sections">
     <button data-tab="stock" aria-selected="true">Stock</button>
     <button data-tab="fields" aria-selected="false">Fields</button>
+    <button data-tab="customers" aria-selected="false">Customers</button>
     <button data-tab="karigars" aria-selected="false">Karigar Details</button>
     <button data-tab="home" aria-selected="false">Homepage</button>
     <button type="button" id="logoutBtn">Log out</button>
@@ -135,13 +136,67 @@ dialog::backdrop{background:rgb(0 0 0 / .45)}
 
 <script>
 const KEY_SCHEMA='saree-schema-v1', KEY_ITEMS='saree-items-v1', KEY_HOME='saree-home-content-v1', KEY_HOME_IMAGES='saree-home-images-v1';
+const KEY_CUSTOMERS='saree-customers-v1', KEY_SALES='saree-sales-v1', KEY_PROFIT_LOG='saree-profit-log-v1';
 const STAGES=[['fal','Fal'],['piko','Piko'],['cutting','Cutting'],['jalar','Jalar'],['dag','Dag'],['finishing','Finishing'],['die','Die'],['raffu','Raffu'],['polish','Polish']];
-const TYPE_NAMES={text:'Text',number:'Number',date:'Date',dropdown:'Dropdown',workstage:'Work stage (choose or type)',textdropdown:'Text + Dropdown',stage:'Work stage status + cost',photo:'Photo',computed:'Auto'};
-const CUSTOM_TYPES=['text','number','date','dropdown','textdropdown','workstage'];
+const TYPE_NAMES={text:'Text',number:'Number',date:'Date',dropdown:'Dropdown',stage:'Work stage',photo:'Photo',computed:'Auto'};
+const CUSTOM_TYPES=['text','number','date','dropdown'];
 const HOME_DEFAULTS={brandName:'Saree Stock',tagline:'Tradition in every drape',announcement:'A little elegance goes a long way — discover your next favourite drape.',eyebrow:'The saree collection',heroTitle:'Timeless elegance.\nMade for your moments.',heroDescription:'Explore detailed product information, browse by fabric and occasion, and find a saree that feels made for your moment. Product details and prices are maintained by our store team.',ctaText:'Explore collection',categoryTitle:'Shop by category',categorySubtitle:'Find your style',catalogTitle:'Our sarees',catalogSubtitle:'Photos, pricing and details in one place',aboutText:'Saree Stock is a thoughtfully curated collection of sarees for everyday elegance, family celebrations and special moments. Browse the catalogue for product details and contact the store to confirm availability.',footerQuestion:'Questions about a product? Contact the store owner.',footerNote:'Product availability and prices are subject to confirmation.'};
 function readHome(){const saved=read(KEY_HOME,{});return {...HOME_DEFAULTS,...(saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:{})}}
 function readHomeImages(){const saved=read(KEY_HOME_IMAGES,[]);return Array.isArray(saved)?saved.filter(x=>x&&typeof x.url==='string'&&x.url.startsWith('/uploads/home-')):[]}
 function saveHomeImages(images){try{localStorage.setItem(KEY_HOME_IMAGES,JSON.stringify(images));return true}catch(e){toast('Could not save homepage images');return false}}
+
+// Customer management functions
+function readCustomers(){const saved=read(KEY_CUSTOMERS,{customers:[]});return Array.isArray(saved)?saved:(saved?.customers||[]);}
+function saveCustomers(customers){try{localStorage.setItem(KEY_CUSTOMERS,JSON.stringify({customers}));return true}catch(e){toast('Could not save customers');return false}}
+function readSales(){const saved=read(KEY_SALES,{transactions:[]});return Array.isArray(saved)?saved:(saved?.transactions||[]);}
+function saveSales(transactions){try{localStorage.setItem(KEY_SALES,JSON.stringify({transactions}));return true}catch(e){toast('Could not save sales');return false}}
+function readProfitLog(){const saved=read(KEY_PROFIT_LOG,{profitEntries:[]});return Array.isArray(saved)?saved:(saved?.profitEntries||[]);}
+function saveProfitLog(entries){try{localStorage.setItem(KEY_PROFIT_LOG,JSON.stringify({profitEntries:entries}));return true}catch(e){toast('Could not save profit log');return false}}
+
+// Auto-migration: add new fields if they don't exist
+function migrateSchema(){
+  const newFields=[
+    {key:'quantity',label:'Quantity',type:'number',enabled:true,builtin:true},
+    {key:'costPrice',label:'Cost Price',type:'number',money:true,enabled:true,builtin:true},
+    {key:'quantitySold',label:'Quantity Sold',type:'number',enabled:false,builtin:true},
+    {key:'lastSoldDate',label:'Last Sold',type:'date',enabled:false,builtin:true}
+  ];
+  let modified=false;
+  for(const f of newFields){
+    if(!schema.some(s=>s.key===f.key)){
+      schema.splice(schema.findIndex(s=>s.key==='profit'),0,f);
+      modified=true;
+    }
+  }
+  if(modified) try{localStorage.setItem(KEY_SCHEMA,JSON.stringify(schema))}catch(e){}
+}
+
+// Auto-migration: ensure items have quantity and costPrice fields
+function migrateItems(){
+  let modified=false;
+  for(const it of items){
+    if(it.values.quantity===undefined){
+      it.values.quantity=1;
+      modified=true;
+    }
+    if(it.values.quantitySold===undefined){
+      it.values.quantitySold=it.values.sold==='Sold'?1:0;
+      modified=true;
+    }
+    if(it.values.costPrice===undefined){
+      it.values.costPrice=it.values.itemPrice||0;
+      modified=true;
+    }
+  }
+  if(modified) persist();
+}
+
+// Initialize new data stores if empty
+function initializeDataStores(){
+  if(!read(KEY_CUSTOMERS,null)) try{localStorage.setItem(KEY_CUSTOMERS,JSON.stringify({customers:[]}))}catch(e){}
+  if(!read(KEY_SALES,null)) try{localStorage.setItem(KEY_SALES,JSON.stringify({transactions:[]}))}catch(e){}
+  if(!read(KEY_PROFIT_LOG,null)) try{localStorage.setItem(KEY_PROFIT_LOG,JSON.stringify({profitEntries:[]}))}catch(e){}
+}
 
 const $=s=>document.querySelector(s);
 $('#logoutBtn').addEventListener('click',()=>{const f=document.createElement('form');f.method='post';f.action='/api/logout';f.hidden=true;document.body.appendChild(f);f.submit()});
@@ -161,7 +216,6 @@ function defaultSchema(){
     {key:'karigarAddress',label:'Karigar Address',type:'text',enabled:true,builtin:true},
     {key:'category',label:'Category',type:'dropdown',options:['Silk','Kanjivaram','Chiffon','Cotton','Georgette'],enabled:true,builtin:true},
     {key:'description',label:'Description',type:'text',enabled:true,builtin:true},
-    {key:'quantity',label:'Stock Quantity',type:'number',enabled:true,builtin:true},
     {key:'price',label:'Sale Price',type:'number',money:true,enabled:true,builtin:true},
     {key:'itemPrice',label:'Item Price',type:'number',money:true,enabled:true,builtin:true},
     {key:'calendar',label:'Calendar',type:'date',enabled:true,builtin:true},
@@ -193,7 +247,6 @@ function persist(){
 
 let schema=read(KEY_SCHEMA,null)||defaultSchema();
 // Add new built-in fields to existing saved schemas without deleting user fields.
-if (!schema.some(x=>x.key==='quantity')) { const at=schema.findIndex(x=>x.key==='description'); schema.splice(at<0?schema.length:at+1,0,{key:'quantity',label:'Stock Quantity',type:'number',enabled:true,builtin:true}); try { localStorage.setItem(KEY_SCHEMA,JSON.stringify(schema)); } catch(e) {} }
 for (const f of defaultSchema().filter(x=>['karigarPhone','karigarAddress'].includes(x.key))) {
   if (!schema.some(x=>x.key===f.key)) schema.splice(Math.max(0,schema.findIndex(x=>x.key==='category')),0,f);
 }
@@ -309,13 +362,11 @@ function stockView(){
 function renderStats(){
   const s=$('#stats'); if(!s) return;
   const unsold=items.filter(i=>i.values.sold!=='Sold').length;
-  const totalQty=items.reduce((n,i)=>n+Math.max(0,Number(i.values?.quantity??1)||0),0);
   const pending=items.filter(i=>i.values.paymentStatus==='Pending').length;
   const profit=items.reduce((n,i)=>n+profitOf(i.values),0);
   s.innerHTML=`
-    <div class="stat"><b>${items.length}</b><span>Saree records / designs</span></div>
-    <div class="stat"><b>${totalQty.toLocaleString('en-IN')}</b><span>Total stock quantity (all records)</span></div>
-    <div class="stat"><b>${unsold}</b><span>Unsold records</span></div>
+    <div class="stat"><b>${items.length}</b><span>Saree records</span></div>
+    <div class="stat"><b>${unsold}</b><span>Unsold</span></div>
     <div class="stat"><b>${pending}</b><span>Payment pending</span></div>
     <div class="stat"><b class="${profit<0?'neg':''}">${money(profit)}</b><span>Total profit</span></div>`;
 }
@@ -366,7 +417,7 @@ function detailPanel(f){
       <select data-act="type" aria-label="Field type">${CUSTOM_TYPES.map(t=>`<option value="${t}"${t===f.type?' selected':''}>${TYPE_NAMES[t]}</option>`).join('')}</select>
     </label>`;
   let body='';
-  if(f.type==='dropdown'||f.type==='workstage'||f.type==='textdropdown'){
+  if(f.type==='dropdown'){
     body=`
       <div class="fl">Dropdown options. Rename an option and every saree using it updates.</div>
       <ul class="optlist">
@@ -420,7 +471,7 @@ function fieldsView(){
         <input name="label" required placeholder="Field name" aria-label="New field name">
         <select name="type" aria-label="Field type">
           <option value="text">Text</option><option value="number">Number</option>
-          <option value="date">Date</option><option value="dropdown">Dropdown</option><option value="textdropdown">Text + Dropdown</option><option value="workstage">Work stage (choose or type)</option>
+          <option value="date">Date</option><option value="dropdown">Dropdown</option>
         </select>
         <input name="options" placeholder="Options, comma separated (dropdown only)" aria-label="Dropdown options">
         <button class="primary" type="submit">Add field</button>
@@ -440,6 +491,41 @@ function syncKarigarContacts(){
   }
   saveKarigarContacts(contacts);return contacts;
 }
+function customersView(){
+  const customers=readCustomers();
+  const rows=customers.map(c=>`<tr data-customer-id="${esc(c.id)}"><td>${esc(c.name||'—')}</td><td>${esc(c.phone||'—')}</td><td>${esc(c.address||'—')}</td><td class="num">${money(c.totalSpent||0)}</td><td><span class="badge ${(c.pendingPayment||0)>0?'warn':''}">${money(c.pendingPayment||0)}</span></td><td><button type="button" data-action="edit-customer" data-id="${esc(c.id)}">Edit</button> <button type="button" data-action="view-customer" data-id="${esc(c.id)}">History</button></td></tr>`).join('');
+  return `
+    <div class="panel">
+      <h2>Customers</h2>
+      <p class="muted">Manage customer records, track purchases and pending payments.</p>
+      <button class="primary" data-action="add-customer" style="margin-bottom:12px">+ New Customer</button>
+      <div style="overflow:auto"><table><thead><tr><th>Name</th><th>Phone</th><th>Address</th><th>Total Spent</th><th>Pending Payment</th><th>Actions</th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="muted">No customers yet. Add one to get started.</td></tr>'}</tbody></table></div>
+    </div>
+    <dialog id="customerDlg" style="width:min(600px,94vw)">
+      <h2 id="customerDlgTitle"></h2>
+      <form id="customerForm">
+        <div class="grid">
+          <div class="field wide"><label for="custName">Name *<input id="custName" name="name" required placeholder="Customer name" autocomplete="off"></label></div>
+          <div class="field"><label for="custPhone">Phone<input id="custPhone" name="phone" type="tel" placeholder="Phone number" autocomplete="off"></label></div>
+          <div class="field wide"><label for="custAddress">Address<textarea id="custAddress" name="address" rows="2" placeholder="Street, city, PIN code" style="width:100%;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:7px 9px;box-sizing:border-box;resize:vertical"></textarea></label></div>
+          <div class="field wide"><label for="custEmail">Email (optional)<input id="custEmail" name="email" type="email" placeholder="customer@example.com" autocomplete="off"></label></div>
+          <div class="field wide"><label for="custNotes">Notes<textarea id="custNotes" name="notes" rows="2" placeholder="VIP, preferences, etc." style="width:100%;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:7px 9px;box-sizing:border-box;resize:vertical"></textarea></label></div>
+        </div>
+        <div class="dlgfoot">
+          <div class="btns">
+            <button type="button" id="custCancelBtn">Cancel</button>
+            <button class="primary" type="submit">Save Customer</button>
+          </div>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="customerHistoryDlg" style="width:min(800px,94vw)">
+      <h2 id="historyTitle">Customer History</h2>
+      <div id="historyContent" style="max-height:600px;overflow-y:auto"></div>
+      <div class="dlgfoot"><button type="button" id="historyCloseBtn">Close</button></div>
+    </dialog>`;
+}
+
 function renderKarigars(){
  const contacts=syncKarigarContacts();
  const rows=Object.entries(contacts).sort((a,b)=>a[1].name.localeCompare(b[1].name)).map(([key,c])=>{
@@ -479,7 +565,7 @@ function homeView(){
   ${homeImagesView()}`;
 }
 
-function homeImagesView(){
+function renderKarigars(){
  const images=readHomeImages();
  const cards=images.map(img=>`<article class="home-image-card"><img src="${esc(img.url)}" alt="${esc(img.name||'Homepage image')}" loading="lazy"><div class="home-image-info"><strong title="${esc(img.name||'Homepage image')}">${esc(img.name||'Homepage image')}</strong><label class="home-image-choice"><input type="radio" name="homeHeroImage" data-home-image-hero="${esc(img.url)}" ${img.hero?'checked':''}> Use as hero image</label><label class="home-image-choice"><input type="checkbox" data-home-image-gallery="${esc(img.url)}" ${img.showOnHome!==false?'checked':''}> Show in home gallery</label><button type="button" class="danger" data-home-image-delete="${esc(img.url)}">Remove image</button></div></article>`).join('');
  return `<section class="panel home-editor home-image-manager"><h2>Homepage images</h2><p class="home-intro">Upload store banners, saree photos or collection pictures here. Choose one as the hero image beside your headline and select which images appear in the home-page gallery. Product photos in Stock remain separate.</p>
@@ -492,6 +578,7 @@ function renderAll(){
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===view)));
   if(view==='stock') renderStock();
   else if(view==='fields') $('#main').innerHTML=fieldsView();
+  else if(view==='customers') $('#main').innerHTML=customersView();
   else if(view==='karigars') renderKarigars();
   else if(view==='home') $('#main').innerHTML=homeView();
 }
@@ -524,20 +611,6 @@ function formFields(v){
     if(f.key==='karigarPhone' || f.key==='karigarAddress'){
       const isAddress=f.key==='karigarAddress';
       return `<div class="field${isAddress?' wide':''}"><label for="${id}">${esc(f.label)}</label>${isAddress?`<textarea id="${id}" name="${f.key}" rows="2" style="width:100%;resize:vertical;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:7px 9px;box-sizing:border-box">${esc(v[f.key]||'')}</textarea>`:`<input id="${id}" name="${f.key}" type="tel" value="${esc(v[f.key]||'')}">`}</div>`;
-    }
-    if(f.type==='textdropdown'){
-      const choices=(f.options||[]).map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
-      return `<div class="field"><label for="${id}">${esc(f.label)} — dropdown or text</label>
-        <select id="${id}_preset" aria-label="Choose a saved ${esc(f.label)}"><option value="">Choose…</option>${(f.options||[]).map(o=>`<option value="${esc(o)}"${o===v[f.key]?' selected':''}>${esc(o)}</option>`).join('')}</select>
-        <input id="${id}" name="${f.key}" type="text" value="${esc(v[f.key]||'')}" placeholder="Or type a new value" style="margin-top:6px;width:100%" list="${id}_options" aria-label="Type or edit ${esc(f.label)}">
-        <datalist id="${id}_options">${choices}</datalist><small class="muted">Choose a saved option or type any new value.</small></div>`;
-    }
-    if(f.type==='workstage'){
-      const choices=(f.options||[]).map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
-      return `<div class="field"><label for="${id}">${esc(f.label)} — choose or type</label>
-        <select id="${id}_preset" aria-label="Choose a saved ${esc(f.label)}"><option value="">Choose…</option>${(f.options||[]).map(o=>`<option value="${esc(o)}"${o===v[f.key]?' selected':''}>${esc(o)}</option>`).join('')}</select>
-        <input id="${id}" name="${f.key}" type="text" value="${esc(v[f.key]||'')}" placeholder="Or type a new stage" style="margin-top:6px;width:100%" list="${id}_options" aria-label="Type or edit ${esc(f.label)}">
-        <datalist id="${id}_options">${choices}</datalist><small class="muted">Choose a saved option or type any new work stage.</small></div>`;
     }
     if(f.type==='dropdown' && f.key==='category'){
       const choices=(f.options||[]).map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
@@ -676,10 +749,38 @@ function openKarigarReport(){
 }
 
 
-// Save Karigar contact details separately so they persist independently of item dates.
+// Customer form submission
 document.addEventListener('submit',e=>{
- if(e.target.id!=='karigarContactForm') return;
- e.preventDefault();const f=e.target;const name=f.elements.name.value.trim();if(!name){toast('Enter karigar name');return;}
+  if(e.target.id==='customerForm'){
+    e.preventDefault();
+    const form=e.target;
+    const name=(form.elements.name?.value||'').trim();
+    if(!name){toast('Enter customer name');return;}
+    const id=form.dataset.custId||('cust_'+uid());
+    const customers=readCustomers();
+    const idx=customers.findIndex(c=>c.id===id);
+    const customer={
+      id,
+      name,
+      phone:(form.elements.phone?.value||'').trim(),
+      address:(form.elements.address?.value||'').trim(),
+      email:(form.elements.email?.value||'').trim(),
+      notes:(form.elements.notes?.value||'').trim(),
+      dateAdded:idx>=0?customers[idx].dateAdded:todayStr(),
+      totalSpent:idx>=0?customers[idx].totalSpent:0,
+      pendingPayment:idx>=0?customers[idx].pendingPayment:0
+    };
+    if(idx>=0) customers[idx]=customer;
+    else customers.push(customer);
+    if(saveCustomers(customers)){
+      toast(idx>=0?'Customer updated':'Customer added');
+      $('#customerDlg').close();
+      renderAll();
+    }
+    return;
+  }
+  if(e.target.id==='karigarContactForm') return;
+  e.preventDefault();const f=e.target;const name=f.elements.name.value.trim();if(!name){toast('Enter karigar name');return;}
  const contacts=getKarigarContacts();const oldKey=f.elements.key.value;const key=normalizedName(name);const previous=oldKey?contacts[oldKey]:null;
  contacts[key]={name,phone:f.elements.phone.value.trim(),address:f.elements.address.value.trim()};
  if(oldKey&&oldKey!==key) delete contacts[oldKey];
@@ -695,8 +796,49 @@ document.querySelector('.tabs').addEventListener('click',e=>{
   view=b.dataset.tab; renderAll();
 });
 
+// Customer management event handlers
+function openCustomerForm(id){
+  const dlg=$('#customerDlg'),form=$('#customerForm');
+  form.dataset.custId=id||'';
+  if(id){
+    const cust=readCustomers().find(c=>c.id===id);
+    if(!cust) return;
+    $('#customerDlgTitle').textContent='Edit Customer';
+    document.getElementById('custName').value=cust.name||'';
+    document.getElementById('custPhone').value=cust.phone||'';
+    document.getElementById('custAddress').value=cust.address||'';
+    document.getElementById('custEmail').value=cust.email||'';
+    document.getElementById('custNotes').value=cust.notes||'';
+  }else{
+    $('#customerDlgTitle').textContent='New Customer';
+    form.reset();
+  }
+  dlg.showModal();
+}
+
+function showCustomerHistory(id){
+  const cust=readCustomers().find(c=>c.id===id);
+  if(!cust) return;
+  const dlg=$('#customerHistoryDlg');
+  $('#historyTitle').textContent='Purchase History — '+esc(cust.name);
+  const sales=readSales().filter(s=>s.customerId===id).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  const rows=sales.map(s=>`<tr><td>${esc(s.date||'—')}</td><td>${esc(s.id)}</td><td>${money(s.totalAmount||0)}</td><td><span class="badge ${s.paymentStatus==='Paid'?'ok':'warn'}">${esc(s.paymentStatus||'—')}</span></td></tr>`).join('');
+  const totalSpent=sales.reduce((n,s)=>n+Number(s.totalAmount||0),0);
+  const pending=sales.filter(s=>s.paymentStatus!=='Paid').reduce((n,s)=>n+Number(s.totalAmount||0),0);
+  $('#historyContent').innerHTML=`
+    <div class="panel">
+      <p><strong>Phone:</strong> ${esc(cust.phone||'—')} <br><strong>Address:</strong> ${esc(cust.address||'—')}</p>
+      <div style="margin-top:12px"><strong>Total spent:</strong> ${money(totalSpent)} &nbsp; <strong>Pending payment:</strong> ${money(pending)}</div>
+    </div>
+    <table style="width:100%;margin-top:12px"><thead><tr><th>Date</th><th>Transaction ID</th><th>Amount</th><th>Status</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="muted">No sales yet.</td></tr>'}</tbody></table>`;
+  dlg.showModal();
+}
+
 $('#main').addEventListener('click',e=>{
   const t=e.target;
+  if(t.closest('[data-action="add-customer"]')) return openCustomerForm(null);
+  if(t.closest('[data-action="edit-customer"]')) return openCustomerForm(t.closest('[data-action="edit-customer"]').dataset.id);
+  if(t.closest('[data-action="view-customer"]')) return showCustomerHistory(t.closest('[data-action="view-customer"]').dataset.id);
   if(t.closest('[data-action="home-reset"]')){
     try{localStorage.setItem(KEY_HOME,JSON.stringify(HOME_DEFAULTS));renderAll();toast('Homepage reset to defaults');}
     catch(err){toast('Could not reset homepage content');}
@@ -757,7 +899,6 @@ $('#main').addEventListener('input',e=>{
 $('#main').addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='sortKey'){ sortKey=t.value; return renderBody(); }
-  if(t.id.startsWith('f_')&&t.id.endsWith('_preset')){const target=document.getElementById(t.id.slice(0,-7));if(target&&t.value)target.value=t.value;return;}
   if(t.id==='finderMode'){finder.mode=t.value;return renderBody();}
   if(t.dataset.filter){filters[t.dataset.filter]=t.value; return renderBody();}
   const row=t.closest('.frow'); if(!row) return;
@@ -767,8 +908,8 @@ $('#main').addEventListener('change',e=>{
     case 'label': f.label=t.value.trim()||f.label; break;
     case 'type':
       f.type=t.value;
-      if((f.type==='dropdown'||f.type==='workstage'||f.type==='textdropdown')&&!f.options) f.options=(f.type==='workstage'?['Fal','Piko','Cutting','Jalar','Dag','Finishing','Die','Raffu','Polish']:[]);
-      if(f.type!=='dropdown'&&f.type!=='workstage'&&f.type!=='textdropdown') delete f.options;
+      if(f.type==='dropdown'&&!f.options) f.options=[];
+      if(f.type!=='dropdown') delete f.options;
       break;
     case 'optrename': {
       const old=f.options[+t.dataset.j], neu=t.value.trim();
@@ -802,7 +943,7 @@ $('#main').addEventListener('submit',e=>{
   if(!label) return;
   const type=String(fd.get('type'));
   const f={key:'custom_'+Date.now().toString(36),label,type,enabled:true};
-  if(type==='dropdown'||type==='workstage'||type==='textdropdown') f.options=String(fd.get('options')||(type==='workstage'?'Fal, Piko, Cutting, Jalar, Dag, Finishing, Die, Raffu, Polish':'')).split(',').map(s=>s.trim()).filter(Boolean);
+  if(type==='dropdown') f.options=String(fd.get('options')||'').split(',').map(s=>s.trim()).filter(Boolean);
   schema.push(f);
   persist(); renderAll(); toast('Field added');
 });
@@ -889,6 +1030,13 @@ $('#itemForm').addEventListener('click',e=>{
     persist(); $('#dlg').close(); renderAll(); toast('Deleted');
   }
 });
+
+// Customer dialog close handlers
+document.addEventListener('click',e=>{
+  if(e.target.id==='custCancelBtn') $('#customerDlg').close();
+  if(e.target.id==='historyCloseBtn') $('#customerHistoryDlg').close();
+});
+
 $('#itemForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const form=e.currentTarget;
@@ -904,6 +1052,354 @@ $('#itemForm').addEventListener('submit',async e=>{
   persist(); $('#dlg').close(); renderAll(); toast('Saved');
 });
 
+// ════════════════════════════════════════════════════════════════════════
+// PHASE 2: SALES ENTRY & STOCK DEPLETION
+// ════════════════════════════════════════════════════════════════════════
+
+function salesView(){
+  const customers=readCustomers();
+  const sales=readSales().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  const rows=sales.map(s=>{
+    const cust=customers.find(c=>c.id===s.customerId);
+    const itemCount=Array.isArray(s.items)?s.items.length:0;
+    return `<tr data-sale-id="${esc(s.id)}"><td>${esc(s.date||'—')}</td><td>${esc(cust?.name||'—')}</td><td>${itemCount} item(s)</td><td class="num">${money(s.totalAmount||0)}</td><td><span class="badge ${s.paymentStatus==='Paid'?'ok':'warn'}">${esc(s.paymentStatus||'—')}</span></td><td><button type="button" data-action="view-sale" data-id="${esc(s.id)}">View</button> <button type="button" data-action="edit-sale" data-id="${esc(s.id)}">Edit</button></td></tr>`;
+  }).join('');
+  return `
+    <div class="panel">
+      <h2>Sales & Transactions</h2>
+      <p class="muted">Record sales, track stock depletion, and manage customer purchases.</p>
+      <button class="primary" data-action="add-sale" style="margin-bottom:12px">+ New Sale</button>
+      <div style="overflow:auto"><table><thead><tr><th>Date</th><th>Customer</th><th>Items</th><th>Total Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="muted">No sales yet.</td></tr>'}</tbody></table></div>
+    </div>
+    <dialog id="saleDlg" style="width:min(800px,94vw)">
+      <h2 id="saleDlgTitle">New Sale</h2>
+      <form id="saleForm">
+        <div class="grid">
+          <div class="field wide"><label for="saleCustomer">Customer *<select id="saleCustomer" required><option value="">Select customer...</option>${customers.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></label></div>
+          <div class="field"><label for="saleDate">Date *<input id="saleDate" type="date" required></label></div>
+          <div class="field"><label for="salePaymentStatus">Payment Status<select id="salePaymentStatus"><option value="Pending">Pending</option><option value="Paid">Paid</option></select></label></div>
+          <div class="field wide"><label>Items to sell<div id="saleItems" style="margin-top:8px;display:grid;gap:8px"></div><button type="button" id="addSaleItem" style="margin-top:8px">+ Add item</button></label></div>
+        </div>
+        <div class="dlgfoot">
+          <div class="live">Total: <b id="saleTotal">₹0</b></div>
+          <div class="btns">
+            <button type="button" id="saleCancelBtn">Cancel</button>
+            <button class="primary" type="submit">Save Sale</button>
+          </div>
+        </div>
+      </form>
+    </dialog>`;
+}
+
+function addSaleItemField(){
+  const saleItems=$('#saleItems');
+  if(!saleItems) return;
+  const index=saleItems.children.length;
+  const div=document.createElement('div');
+  div.className='detail';
+  div.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end">
+      <select name="item_${index}_id" class="sale-item-select" data-index="${index}">
+        <option value="">Select saree...</option>
+        ${items.map(it=>`<option value="${esc(it.id)}">${esc(it.values.description||it.id)} (₹${Number(it.values.price||0).toLocaleString('en-IN')})</option>`).join('')}
+      </select>
+      <input type="number" name="item_${index}_qty" min="1" max="999" value="1" placeholder="Qty" class="sale-item-qty" data-index="${index}">
+      <div class="num" id="item_${index}_subtotal">₹0</div>
+      <button type="button" data-remove-item="${index}" class="danger">Remove</button>
+    </div>`;
+  saleItems.appendChild(div);
+}
+
+function updateSaleTotal(){
+  const form=$('#saleForm');
+  if(!form) return;
+  let total=0;
+  const selects=form.querySelectorAll('.sale-item-select');
+  selects.forEach(sel=>{
+    const idx=sel.dataset.index;
+    const itemId=sel.value;
+    const qty=Number(form.querySelector(`[name="item_${idx}_qty"]`)?.value||0);
+    const item=items.find(it=>it.id===itemId);
+    if(item&&qty>0){
+      const price=Number(item.values.price||0);
+      const subtotal=price*qty;
+      total+=subtotal;
+      const subtotalEl=$(`#item_${idx}_subtotal`);
+      if(subtotalEl) subtotalEl.textContent='₹'+subtotal.toLocaleString('en-IN');
+    }
+  });
+  const totalEl=$('#saleTotal');
+  if(totalEl) totalEl.textContent='₹'+total.toLocaleString('en-IN');
+}
+
+function reduceSaleStock(saleItems){
+  for(const item of saleItems){
+    const saree=items.find(it=>it.id===item.itemId);
+    if(saree){
+      const currentQty=Number(saree.values.quantity||1);
+      saree.values.quantity=Math.max(0,currentQty-item.qty);
+      saree.values.quantitySold=(Number(saree.values.quantitySold||0))+item.qty;
+      saree.values.lastSoldDate=todayStr();
+    }
+  }
+  persist();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// PHASE 3: PROFIT TRACKING & PAYMENTS
+// ════════════════════════════════════════════════════════════════════════
+
+function profitView(){
+  const sales=readSales();
+  const profitEntries=[];
+  for(const sale of sales){
+    for(const item of (sale.items||[])){
+      const saree=items.find(it=>it.id===item.itemId);
+      if(saree){
+        const salePrice=Number(item.salePrice||0);
+        const costPrice=Number(saree.values.costPrice||0);
+        const workCost=Number(item.workCost||0);
+        const profit=salePrice-costPrice-workCost;
+        profitEntries.push({
+          date:sale.date,
+          customerId:sale.customerId,
+          itemId:item.itemId,
+          description:saree.values.description,
+          salePrice,
+          costPrice,
+          workCost,
+          profit
+        });
+      }
+    }
+  }
+  const totalProfit=profitEntries.reduce((n,p)=>n+p.profit,0);
+  const totalSalePrice=profitEntries.reduce((n,p)=>n+p.salePrice,0);
+  const rows=profitEntries.map(p=>`<tr><td>${esc(p.date||'—')}</td><td>${esc(p.description||'—')}</td><td class="num">${money(p.salePrice)}</td><td class="num">${money(p.costPrice)}</td><td class="num">${money(p.workCost)}</td><td class="num ${p.profit<0?'neg':'pos'}">${money(p.profit)}</td></tr>`).join('');
+  return `
+    <div class="panel">
+      <h2>Profit Analysis</h2>
+      <div class="stats">
+        <div class="stat"><b>${money(totalSalePrice)}</b><span>Total Sales</span></div>
+        <div class="stat"><b class="${totalProfit<0?'neg':'pos'}">${money(totalProfit)}</b><span>Total Profit</span></div>
+        <div class="stat"><b>${profitEntries.length}</b><span>Items Sold</span></div>
+      </div>
+      <div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Date</th><th>Item</th><th>Sale Price</th><th>Cost Price</th><th>Work Cost</th><th>Profit</th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="muted">No sales yet.</td></tr>'}</tbody></table></div>
+    </div>`;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// PHASE 4: REPORTING & ANALYTICS
+// ════════════════════════════════════════════════════════════════════════
+
+function analyticsView(){
+  const sales=readSales();
+  const customers=readCustomers();
+  const totalRevenue=sales.reduce((n,s)=>n+Number(s.totalAmount||0),0);
+  const totalPaid=sales.filter(s=>s.paymentStatus==='Paid').reduce((n,s)=>n+Number(s.totalAmount||0),0);
+  const totalPending=sales.filter(s=>s.paymentStatus!=='Paid').reduce((n,s)=>n+Number(s.totalAmount||0),0);
+  const categoryStats={};
+  for(const item of items){
+    const cat=String(item.values.category||'Other');
+    if(!categoryStats[cat]) categoryStats[cat]={count:0,value:0};
+    categoryStats[cat].count++;
+    categoryStats[cat].value+=Number(item.values.price||0);
+  }
+  const topCustomers=customers.map(c=>({...c,spent:sales.filter(s=>s.customerId===c.id).reduce((n,s)=>n+Number(s.totalAmount||0),0)})).sort((a,b)=>b.spent-a.spent).slice(0,5);
+  const catRows=Object.entries(categoryStats).map(([cat,stats])=>`<tr><td>${esc(cat)}</td><td>${stats.count}</td><td class="num">${money(stats.value)}</td></tr>`).join('');
+  const custRows=topCustomers.map(c=>`<tr><td>${esc(c.name)}</td><td class="num">${money(c.spent)}</td></tr>`).join('');
+  return `
+    <div class="panel">
+      <h2>Business Analytics</h2>
+      <div class="stats">
+        <div class="stat"><b>${money(totalRevenue)}</b><span>Total Revenue</span></div>
+        <div class="stat"><b class="pos">${money(totalPaid)}</b><span>Paid</span></div>
+        <div class="stat"><b class="warn">${money(totalPending)}</b><span>Pending</span></div>
+        <div class="stat"><b>${items.length}</b><span>Total Inventory</span></div>
+      </div>
+      <h3 style="margin-top:20px">By Category</h3>
+      <div style="overflow:auto"><table><thead><tr><th>Category</th><th>Items</th><th>Value</th></tr></thead><tbody>${catRows||'<tr><td colspan="3" class="muted">No data yet.</td></tr>'}</tbody></table></div>
+      <h3 style="margin-top:20px">Top Customers</h3>
+      <div style="overflow:auto"><table><thead><tr><th>Customer</th><th>Total Spent</th></tr></thead><tbody>${custRows||'<tr><td colspan="2" class="muted">No sales yet.</td></tr>'}</tbody></table></div>
+    </div>`;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// PHASE 5: UI REFINEMENTS & EXPORTS
+// ════════════════════════════════════════════════════════════════════════
+
+function exportSalesCSV(){
+  const sales=readSales();
+  const customers=readCustomers();
+  let csv='Date,Customer,Items,Amount,Status\n';
+  for(const s of sales){
+    const cust=customers.find(c=>c.id===s.customerId);
+    csv+=`${s.date},"${String(cust?.name||'').replace(/"/g,'""')}",${Array.isArray(s.items)?s.items.length:0},${s.totalAmount},"${s.paymentStatus}"\n`;
+  }
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`sales-${todayStr()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Sales exported as CSV');
+}
+
+function exportInventoryCSV(){
+  let csv='Item ID,Description,Category,Sale Price,Cost Price,Quantity,Quantity Sold\n';
+  for(const it of items){
+    const v=it.values;
+    csv+=`${it.id},"${String(v.description||'').replace(/"/g,'""')}","${String(v.category||'').replace(/"/g,'""')}",${v.price||0},${v.costPrice||0},${v.quantity||1},${v.quantitySold||0}\n`;
+  }
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`inventory-${todayStr()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Inventory exported as CSV');
+}
+
+// Add sales tab to navigation
+const tabsNav=document.querySelector('.tabs');
+if(tabsNav){
+  const button=document.createElement('button');
+  button.type='button';
+  button.setAttribute('data-tab','sales');
+  button.textContent='Sales';
+  tabsNav.insertBefore(button,tabsNav.querySelector('[data-tab="karigars"]'));
+
+  const button2=document.createElement('button');
+  button2.type='button';
+  button2.setAttribute('data-tab','profit');
+  button2.textContent='Profit';
+  tabsNav.insertBefore(button2,tabsNav.querySelector('[data-tab="karigars"]'));
+
+  const button3=document.createElement('button');
+  button3.type='button';
+  button3.setAttribute('data-tab','analytics');
+  button3.textContent='Analytics';
+  tabsNav.insertBefore(button3,tabsNav.querySelector('[data-tab="karigars"]'));
+}
+
+// Update renderAll to include new tabs
+const oldRenderAll=renderAll;
+renderAll=function(){
+  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===view)));
+  if(view==='stock') renderStock();
+  else if(view==='fields') $('#main').innerHTML=fieldsView();
+  else if(view==='customers') $('#main').innerHTML=customersView();
+  else if(view==='sales') $('#main').innerHTML=salesView();
+  else if(view==='profit') $('#main').innerHTML=profitView();
+  else if(view==='analytics') $('#main').innerHTML=analyticsView();
+  else if(view==='karigars') renderKarigars();
+  else if(view==='home') $('#main').innerHTML=homeView();
+};
+
+// Event handlers for sales
+$('#main').addEventListener('click',e=>{
+  if(e.target.closest('[data-action="add-sale"]')) {
+    const dlg=$('#saleDlg');
+    if(dlg){
+      dlg.dataset.saleId='';
+      $('#saleDlgTitle').textContent='New Sale';
+      $('#saleForm').reset();
+      $('#saleDate').value=todayStr();
+      const saleItems=$('#saleItems');
+      if(saleItems) saleItems.innerHTML='';
+      dlg.showModal();
+    }
+  }
+  if(e.target.closest('[data-action="view-sale"]')){
+    const saleId=e.target.closest('[data-action="view-sale"]').dataset.id;
+    const sale=readSales().find(s=>s.id===saleId);
+    if(sale){
+      toast('Sale details: '+JSON.stringify(sale).substring(0,100));
+    }
+  }
+  if(e.target.closest('[data-remove-item]')){
+    e.target.closest('[data-remove-item]').parentElement.remove();
+    updateSaleTotal();
+  }
+});
+
+document.addEventListener('change',e=>{
+  if(e.target.classList.contains('sale-item-select') || e.target.classList.contains('sale-item-qty')){
+    updateSaleTotal();
+  }
+});
+
+document.addEventListener('click',e=>{
+  if(e.target.id==='addSaleItem'){
+    e.preventDefault();
+    addSaleItemField();
+    updateSaleTotal();
+  }
+  if(e.target.id==='saleCancelBtn') $('#saleDlg').close();
+});
+
+document.addEventListener('submit',e=>{
+  if(e.target.id==='saleForm'){
+    e.preventDefault();
+    const form=e.target;
+    const customerId=form.querySelector('#saleCustomer').value;
+    const date=form.querySelector('#saleDate').value;
+    const paymentStatus=form.querySelector('#salePaymentStatus').value;
+    if(!customerId){toast('Select a customer');return;}
+
+    const saleItems=[];
+    let totalAmount=0;
+    form.querySelectorAll('.sale-item-select').forEach((sel,idx)=>{
+      const itemId=sel.value;
+      const qty=Number(form.querySelector(`[name="item_${idx}_qty"]`)?.value||0);
+      if(itemId&&qty>0){
+        const item=items.find(it=>it.id===itemId);
+        if(item){
+          const price=Number(item.values.price||0);
+          const subtotal=price*qty;
+          saleItems.push({itemId,qty,salePrice:price});
+          totalAmount+=subtotal;
+        }
+      }
+    });
+
+    if(saleItems.length===0){toast('Add at least one item');return;}
+
+    const sale={
+      id:'sale_'+uid(),
+      date,
+      customerId,
+      items:saleItems,
+      totalAmount,
+      paymentStatus
+    };
+
+    const sales=readSales();
+    sales.push(sale);
+    saveSales(sales);
+    reduceSaleStock(saleItems);
+
+    // Update customer totals
+    const customers=readCustomers();
+    const cust=customers.find(c=>c.id===customerId);
+    if(cust){
+      cust.totalSpent=(Number(cust.totalSpent||0))+totalAmount;
+      if(paymentStatus!=='Paid') cust.pendingPayment=(Number(cust.pendingPayment||0))+totalAmount;
+      saveCustomers(customers);
+    }
+
+    $('#saleDlg').close();
+    renderAll();
+    toast('Sale recorded');
+  }
+});
+
+// Initialize migrations and data stores on page load
+migrateSchema();
+migrateItems();
+initializeDataStores();
 renderAll();
 </script>
 
