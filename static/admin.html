@@ -8,7 +8,6 @@
 <title>Saree Stock Manager</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-/* Layout: a dense admin shell. Header and tabs on top, a scannable table, and dialog forms below. */
 :root{
   --bg:#f6f0e4; --surface:#fffdf7; --line:#e2d6bf; --fg:#2b1c1f; --muted:#7d6c64;
   --accent:#6b1830; --gold:#a8822f; --danger:#a13a2c; --ok:#2f6a45; --warn:#9a6a10;
@@ -38,9 +37,24 @@ button:disabled{opacity:.4;cursor:default}
 .top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:12px}
 .brand{font:600 30px/1 var(--display);color:var(--accent)}
 .sub{color:var(--muted);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
-.tabs{display:flex;gap:6px}
-.tabs button{background:none;border-color:transparent;color:var(--muted)}
-.tabs button[aria-selected="true"]{color:var(--fg);border-color:var(--line);background:var(--surface)}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+@keyframes rainbow-spin{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.tabs button:not(#logoutBtn){
+  position:relative;padding:7px 14px;border-radius:8px;font-weight:500;font-size:13px;
+  color:var(--muted);background:var(--surface);border:2px solid var(--line);
+  transition:color .15s,transform .1s;
+}
+.tabs button:not(#logoutBtn):hover{color:var(--fg);transform:translateY(-1px)}
+.tabs button:not(#logoutBtn)[aria-selected="true"]{
+  color:var(--fg);font-weight:700;border-color:transparent;
+  background:
+    linear-gradient(var(--surface),var(--surface)) padding-box,
+    linear-gradient(90deg,#ff4444,#ff9900,#ffee00,#44cc44,#2299ff,#aa44ff,#ff4444) border-box;
+  background-size:200% 200%;
+  animation:rainbow-spin 3s linear infinite;
+  border-width:2px;
+}
+#logoutBtn{background:none;border:1px solid var(--line);border-radius:6px;color:var(--muted);padding:6px 12px;font-size:13px}
 .notice{margin:12px 0;padding:8px 12px;border-left:3px solid var(--gold);background:var(--surface);color:var(--muted);font-size:13px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 12px}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:10px 12px}
@@ -107,6 +121,13 @@ dialog::backdrop{background:rgb(0 0 0 / .45)}
 .toast.show{opacity:1}
 @media (prefers-reduced-motion: reduce){.toast{transition:none}}
 @media (max-width:520px){.moves{margin-left:0}.detail{margin-left:0}}
+.sale-line{display:grid;grid-template-columns:1fr 100px 100px auto;gap:8px;align-items:end;padding:10px;background:var(--bg);border:1px solid var(--line);border-radius:4px;margin-bottom:8px}
+.sale-line input,.sale-line select{width:100%;box-sizing:border-box}
+.sale-line button{padding:6px 10px;font-size:12px}
+.sale-profit{font-size:13px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.people-toggle{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px;margin-bottom:16px;width:fit-content}
+.people-toggle button{border:none;background:none;border-radius:999px;padding:8px 20px;font-size:14px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .15s}
+.people-toggle button.active{background:var(--accent);color:var(--bg);font-weight:700}
 </style>
 
 <header class="top">
@@ -117,14 +138,14 @@ dialog::backdrop{background:rgb(0 0 0 / .45)}
   <nav class="tabs" aria-label="Sections">
     <button data-tab="stock" aria-selected="true">Stock</button>
     <button data-tab="fields" aria-selected="false">Fields</button>
-    <button data-tab="customers" aria-selected="false">Customers</button>
-    <button data-tab="karigars" aria-selected="false">Karigar Details</button>
-    <button data-tab="home" aria-selected="false">Homepage</button>
+    <button data-tab="sales" aria-selected="false">Sales</button>
+    <button data-tab="people" aria-selected="false">People</button>
+        <button data-tab="home" aria-selected="false">Homepage</button>
     <button type="button" id="logoutBtn">Log out</button>
   </nav>
 </header>
 
-<p class="notice">Admin changes save to this computer's shared SQLite database. Use Stock to manage sarees, Karigar Details for contact records and purchase history, Homepage to edit the customer-facing storefront, and Fields to customise stock fields. Keep this admin page on a trusted network.</p>
+<p class="notice">Admin changes save to this computer's shared SQLite database. Use Stock to manage sarees, Sales to record transactions, Customers for profiles, Karigar Details for contacts, Homepage to edit the storefront, and Fields to customise stock fields. Keep this admin page on a trusted network.</p>
 
 <main id="main"></main>
 
@@ -135,8 +156,10 @@ dialog::backdrop{background:rgb(0 0 0 / .45)}
 <div class="toast" id="toast" role="status"></div>
 
 <script>
+let peopleMode='customers';
 const KEY_SCHEMA='saree-schema-v1', KEY_ITEMS='saree-items-v1', KEY_HOME='saree-home-content-v1', KEY_HOME_IMAGES='saree-home-images-v1';
 const KEY_CUSTOMERS='saree-customers-v1', KEY_SALES='saree-sales-v1', KEY_PROFIT_LOG='saree-profit-log-v1';
+const KEY_DETAILS='saree-details-v1';
 const STAGES=[['fal','Fal'],['piko','Piko'],['cutting','Cutting'],['jalar','Jalar'],['dag','Dag'],['finishing','Finishing'],['die','Die'],['raffu','Raffu'],['polish','Polish']];
 const TYPE_NAMES={text:'Text',number:'Number',date:'Date',dropdown:'Dropdown',stage:'Work stage',photo:'Photo',computed:'Auto'};
 const CUSTOM_TYPES=['text','number','date','dropdown'];
@@ -145,15 +168,15 @@ function readHome(){const saved=read(KEY_HOME,{});return {...HOME_DEFAULTS,...(s
 function readHomeImages(){const saved=read(KEY_HOME_IMAGES,[]);return Array.isArray(saved)?saved.filter(x=>x&&typeof x.url==='string'&&x.url.startsWith('/uploads/home-')):[]}
 function saveHomeImages(images){try{localStorage.setItem(KEY_HOME_IMAGES,JSON.stringify(images));return true}catch(e){toast('Could not save homepage images');return false}}
 
-// Customer management functions
 function readCustomers(){const saved=read(KEY_CUSTOMERS,{customers:[]});return Array.isArray(saved)?saved:(saved?.customers||[]);}
 function saveCustomers(customers){try{localStorage.setItem(KEY_CUSTOMERS,JSON.stringify({customers}));return true}catch(e){toast('Could not save customers');return false}}
 function readSales(){const saved=read(KEY_SALES,{transactions:[]});return Array.isArray(saved)?saved:(saved?.transactions||[]);}
 function saveSales(transactions){try{localStorage.setItem(KEY_SALES,JSON.stringify({transactions}));return true}catch(e){toast('Could not save sales');return false}}
 function readProfitLog(){const saved=read(KEY_PROFIT_LOG,{profitEntries:[]});return Array.isArray(saved)?saved:(saved?.profitEntries||[]);}
 function saveProfitLog(entries){try{localStorage.setItem(KEY_PROFIT_LOG,JSON.stringify({profitEntries:entries}));return true}catch(e){toast('Could not save profit log');return false}}
+function readDetails(){return read(KEY_DETAILS,[]);}
+function saveDetails(d){try{localStorage.setItem(KEY_DETAILS,JSON.stringify(d));return true}catch(e){toast('Could not save details');return false}}
 
-// Auto-migration: add new fields if they don't exist
 function migrateSchema(){
   const newFields=[
     {key:'quantity',label:'Quantity',type:'number',enabled:true,builtin:true},
@@ -171,7 +194,6 @@ function migrateSchema(){
   if(modified) try{localStorage.setItem(KEY_SCHEMA,JSON.stringify(schema))}catch(e){}
 }
 
-// Auto-migration: ensure items have quantity and costPrice fields
 function migrateItems(){
   let modified=false;
   for(const it of items){
@@ -191,7 +213,6 @@ function migrateItems(){
   if(modified) persist();
 }
 
-// Initialize new data stores if empty
 function initializeDataStores(){
   if(!read(KEY_CUSTOMERS,null)) try{localStorage.setItem(KEY_CUSTOMERS,JSON.stringify({customers:[]}))}catch(e){}
   if(!read(KEY_SALES,null)) try{localStorage.setItem(KEY_SALES,JSON.stringify({transactions:[]}))}catch(e){}
@@ -232,8 +253,8 @@ function seed(){
   const rec=(v)=>({id:uid(),photo:null,values:v});
   const blank=Object.fromEntries(STAGES.map(([k])=>[k,st(false,0)]));
   return [
-    rec({...blank,date:'2026-10-02',paymentStatus:'Paid',paymentMethod:'UPI',karigar:'Sample karigar A',category:'Kanjivaram',description:'Sample entry: maroon Kanjivaram with gold zari border',price:18500,itemPrice:9000,calendar:'2026-10-20',sold:'Unsold',customer:'',fal:st(true,300),piko:st(true,450),cutting:st(true,0),jalar:st(true,600)}),
-    rec({...blank,date:'2026-10-05',paymentStatus:'Pending',paymentMethod:'Cash',karigar:'Sample karigar B',category:'Chiffon',description:'Sample entry: pink chiffon with sequin work',price:4200,itemPrice:1800,calendar:'',sold:'Sold',customer:'Sample customer',fal:st(true,120),piko:st(true,0),cutting:st(true,0)}),
+    rec({...blank,date:'2026-10-02',paymentStatus:'Paid',paymentMethod:'UPI',karigar:'Sample karigar A',category:'Kanjivaram',description:'Sample entry: maroon Kanjivaram with gold zari border',price:18500,itemPrice:9000,calendar:'2026-10-20',sold:'Unsold',customer:'',fal:st(true,300),piko:st(true,450),cutting:st(true,0),jalar:st(true,600),quantity:2,costPrice:9000}),
+    rec({...blank,date:'2026-10-05',paymentStatus:'Pending',paymentMethod:'Cash',karigar:'Sample karigar B',category:'Chiffon',description:'Sample entry: pink chiffon with sequin work',price:4200,itemPrice:1800,calendar:'',sold:'Sold',customer:'Sample customer',fal:st(true,120),piko:st(true,0),cutting:st(true,0),quantity:1,costPrice:1800,quantitySold:1,lastSoldDate:'2026-10-05'}),
   ];
 }
 
@@ -246,7 +267,6 @@ function persist(){
 }
 
 let schema=read(KEY_SCHEMA,null)||defaultSchema();
-// Add new built-in fields to existing saved schemas without deleting user fields.
 for (const f of defaultSchema().filter(x=>['karigarPhone','karigarAddress'].includes(x.key))) {
   if (!schema.some(x=>x.key===f.key)) schema.splice(Math.max(0,schema.findIndex(x=>x.key==='category')),0,f);
 }
@@ -254,7 +274,7 @@ if (!read(KEY_SCHEMA,null)?.some(x=>x.key==='karigarPhone') || !read(KEY_SCHEMA,
 
 let items=read(KEY_ITEMS,null)||[];
 const oldItemCount=items.length;
-items=items.filter(it=>!String(it?.values?.description||'').startsWith('Sample entry:')); // remove old demo products
+items=items.filter(it=>!String(it?.values?.description||'').startsWith('Sample entry:'));
 if(items.length!==oldItemCount) persist();
 let view='stock', editingId=null, editingPhoto=null, sortKey='date', sortDir=-1, selectedFindId=null, findQuery='';
 const filters={q:'',category:'',payment:'',sold:''};
@@ -273,8 +293,8 @@ function cell(f,it){
   const v=it.values, x=v[f.key];
   switch(f.type){
     case 'stage': return `<span class="badge ${x?.done?'ok':''}">${x?.done?'Done':'Pending'}</span> <span class="num">${money(Number(x?.cost||0))}</span>`;
-    case 'photo': {const photos=Array.isArray(it.photo)?it.photo:(it.photo?[it.photo]:[]); return photos.length?`<img class="thumb" src="${photos[0]}" alt="" title="${photos.length} photo(s)">`:'<span class="muted">—</span>';}
-    case 'computed': {const p=profitOf(v); return `<span class="num ${p<0?'neg':'pos'}">${money(p)}</span>`;}
+    case 'photo': {const photos=Array.isArray(it.photo)?it.photo:(it.photo?[it.photo]:[]);return photos.length?`<img class="thumb" src="${photos[0]}" alt="" title="${photos.length} photo(s)">`:'<span class="muted">—</span>';}
+    case 'computed': {const p=profitOf(v);return `<span class="num ${p<0?'neg':'pos'}">${money(p)}</span>`;}
     case 'number': return f.money?`<span class="num">${money(x)}</span>`:esc(x??'—');
     case 'dropdown':
       if(f.key==='sold') return `<span class="badge ${x==='Sold'?'sold':''}">${esc(x||'Unsold')}</span>`;
@@ -290,8 +310,7 @@ function sortVal(it,key){
   const f=schema.find(s=>s.key===key);
   const v=it.values[key];
   if(f?.type==='stage') return v?.cost??0;
-  // Dropdowns sort in the order their options are listed, so "Paid" before "Pending" stays meaningful.
-  if(f?.type==='dropdown'){const idx=(f.options||[]).indexOf(v); return idx<0?9999:idx;}
+  if(f?.type==='dropdown'){const idx=(f.options||[]).indexOf(v);return idx<0?9999:idx;}
   if(f?.money||f?.type==='number') return Number(v??0);
   return String(v??'').toLowerCase();
 }
@@ -373,9 +392,8 @@ function renderStats(){
 
 function renderBody(){
   const cols=schema.filter(f=>f.enabled);
-  // If the sorted field was hidden, fall back to the first visible one.
   if(!cols.some(f=>f.key===sortKey)&&cols[0]) sortKey=cols.find(f=>f.type!=='photo')?.key||cols[0].key;
-  const sk=$('#sortKey'); if(sk){ sk.innerHTML=sortableFields().map(f=>`<option value="${f.key}"${f.key===sortKey?' selected':''}>${esc(f.label)}</option>`).join(''); }
+  const sk=$('#sortKey'); if(sk){sk.innerHTML=sortableFields().map(f=>`<option value="${f.key}"${f.key===sortKey?' selected':''}>${esc(f.label)}</option>`).join('');}
   const sd=$('#sortDir'); if(sd) sd.textContent=sortDir>0?'Ascending ↑':'Descending ↓';
   $('#thead').innerHTML='<tr>'+cols.map(f=>`<th data-sort="${f.key}">${esc(f.label)}${sortKey===f.key?(sortDir>0?' ▲':' ▼'):''}</th>`).join('')+'</tr>';
   const rows=visibleRows();
@@ -403,16 +421,16 @@ function renderFindResults(){
   label.textContent=selected?'Selected: '+itemFindText(selected).name+' (ID: '+selected.id+'). The stock list is not filtered by this selection.':'';
 }
 function selectFoundItem(id){
-  const it=items.find(x=>String(x.id)===String(id)); if(!it) return;
+  const it=items.find(x=>String(x.id)===String(id));if(!it) return;
   selectedFindId=it.id;
   renderBody();
   const row=document.querySelector(`#tbody tr[data-id="${CSS.escape(String(it.id))}"]`);
   if(row){row.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});}
 }
-function renderStock(){ $('#main').innerHTML=stockView(); renderBody(); }
+function renderStock(){$('#main').innerHTML=stockView();renderBody();}
 
 function detailPanel(f){
-  const typeSelect = (f.type==='photo'||f.type==='computed'||f.type==='stage') ? '' : `
+  const typeSelect=(f.type==='photo'||f.type==='computed'||f.type==='stage')?'':`
     <label class="fl">Field type
       <select data-act="type" aria-label="Field type">${CUSTOM_TYPES.map(t=>`<option value="${t}"${t===f.type?' selected':''}>${TYPE_NAMES[t]}</option>`).join('')}</select>
     </label>`;
@@ -425,15 +443,15 @@ function detailPanel(f){
           <input value="${esc(o)}" data-act="optrename" data-j="${j}" aria-label="Option name">
           <button type="button" data-act="optup" data-j="${j}" ${j===0?'disabled':''} aria-label="Move option up">↑</button>
           <button type="button" class="danger" data-act="optdel" data-j="${j}" aria-label="Remove option">✕</button>
-        </li>`).join('') || '<li class="muted">No options yet.</li>'}
+        </li>`).join('')||'<li class="muted">No options yet.</li>'}
       </ul>
       <form class="addopt" data-optform>
         <input name="opt" placeholder="New option, e.g. Organza" aria-label="New option">
         <button type="submit">Add option</button>
       </form>`;
-  } else if(f.type==='stage'){
+  }else if(f.type==='stage'){
     body='<div class="hint">Work stages record Done or Pending and a cost on each saree.</div>';
-  } else if(f.type==='photo'||f.type==='computed'){
+  }else if(f.type==='photo'||f.type==='computed'){
     body='<div class="hint">Filled in automatically or by upload. Nothing to configure.</div>';
   }
   return `<div class="detail">${typeSelect}${body}</div>`;
@@ -480,7 +498,7 @@ function fieldsView(){
 }
 
 const KEY_KARIGARS='saree-karigar-contacts-v1';
-function getKarigarContacts(){return read(KEY_KARIGARS,{} )||{};}
+function getKarigarContacts(){return read(KEY_KARIGARS,{})||{};}
 function saveKarigarContacts(data){try{localStorage.setItem(KEY_KARIGARS,JSON.stringify(data));return true}catch(e){toast('Could not save karigar details');return false}}
 function normalizedName(s){return String(s||'').trim().toLocaleLowerCase();}
 function syncKarigarContacts(){
@@ -501,15 +519,26 @@ function customersView(){
       <button class="primary" data-action="add-customer" style="margin-bottom:12px">+ New Customer</button>
       <div style="overflow:auto"><table><thead><tr><th>Name</th><th>Phone</th><th>Address</th><th>Total Spent</th><th>Pending Payment</th><th>Actions</th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="muted">No customers yet. Add one to get started.</td></tr>'}</tbody></table></div>
     </div>
-    <dialog id="customerDlg" style="width:min(600px,94vw)">
+    <dialog id="customerDlg" style="width:min(700px,94vw)">
       <h2 id="customerDlgTitle"></h2>
       <form id="customerForm">
         <div class="grid">
+          <div class="field wide" style="margin-bottom:4px"><label style="color:var(--muted);font-size:12px;font-weight:600">Auto-fill from Details<select id="custDetailPicker" style="width:100%;margin-top:4px"><option value="">— pick a saved detail —</option></select></label></div>
           <div class="field wide"><label for="custName">Name *<input id="custName" name="name" required placeholder="Customer name" autocomplete="off"></label></div>
           <div class="field"><label for="custPhone">Phone<input id="custPhone" name="phone" type="tel" placeholder="Phone number" autocomplete="off"></label></div>
           <div class="field wide"><label for="custAddress">Address<textarea id="custAddress" name="address" rows="2" placeholder="Street, city, PIN code" style="width:100%;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:7px 9px;box-sizing:border-box;resize:vertical"></textarea></label></div>
           <div class="field wide"><label for="custEmail">Email (optional)<input id="custEmail" name="email" type="email" placeholder="customer@example.com" autocomplete="off"></label></div>
           <div class="field wide"><label for="custNotes">Notes<textarea id="custNotes" name="notes" rows="2" placeholder="VIP, preferences, etc." style="width:100%;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:7px 9px;box-sizing:border-box;resize:vertical"></textarea></label></div>
+          <div class="field wide" style="border-top:1px solid var(--line);padding-top:12px;margin-top:8px">
+            <label style="color:var(--muted);font-weight:600;font-size:12px;margin-bottom:8px;display:block">💼 Add Stock (Optional)</label>
+            <p style="color:var(--muted);font-size:12px;margin:0 0 10px">Select sarees to add to this customer's purchase</p>
+            <div id="custStockItems" style="display:grid;gap:8px;max-height:250px;overflow-y:auto"></div>
+            <button type="button" id="addCustStockBtn" style="margin-top:8px;width:100%">+ Add stock item</button>
+          </div>
+          <div class="field wide" id="custStockSummary" style="display:none;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:10px;font-size:12px;color:var(--muted)">
+            <div>Selected items: <b id="custStockCount">0</b></div>
+            <div>Estimated sale: <b id="custStockTotal" style="color:var(--fg)">₹0</b></div>
+          </div>
         </div>
         <div class="dlgfoot">
           <div class="btns">
@@ -532,7 +561,8 @@ function renderKarigars(){
   const count=items.filter(it=>normalizedName(it.values?.karigar)===key).length;
   return `<tr><td>${esc(c.name)}</td><td>${esc(c.phone||'—')}</td><td>${esc(c.address||'—')}</td><td>${count}</td><td><button type="button" data-k-edit="${esc(key)}">Edit</button> <button type="button" data-k-history="${esc(key)}">Purchase history</button></td></tr>`;
  }).join('');
- $('#main').innerHTML=`<section class="panel" style="padding:18px"><h2>Karigar Details</h2><p class="muted">Save each karigar's contact details once. Names found in existing stock entries are added automatically.</p><form id="karigarContactForm" class="formgrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"><input type="hidden" name="key"><label>Karigar name *<input name="name" required placeholder="Full name" list="karigarNameOptions"></label><datalist id="karigarNameOptions">${[...new Set(items.map(it=>String(it.values?.karigar||'').trim()).filter(Boolean))].map(n=>`<option value="${esc(n)}">`).join('')}</datalist><label>Mobile number<input name="phone" type="tel" placeholder="Phone number"></label><label style="grid-column:1/-1">Full address<textarea name="address" rows="3" placeholder="House, street, city, PIN code"></textarea></label><div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="primary" type="submit">Save Karigar</button><button type="button" data-k-clear>Clear form</button></div></form></section><section class="panel" style="padding:18px;margin-top:16px"><h2>Saved Karigars</h2><div style="overflow:auto"><table><thead><tr><th>Name</th><th>Mobile</th><th>Address</th><th>Stock entries</th><th>Actions</th></tr></thead><tbody>${rows||'<tr><td colspan="5">No karigars saved yet.</td></tr>'}</tbody></table></div></section>`;
+ const target=$('#karigarWrap')||$('#main');
+ target.innerHTML=`<section class="panel" style="padding:18px"><h2>Karigar Details</h2><p class="muted">Save each karigar's contact details once. Names found in existing stock entries are added automatically.</p><form id="karigarContactForm" class="formgrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"><input type="hidden" name="key"><label style="grid-column:1/-1">Auto-fill from Details<select id="karigarDetailPicker" style="width:100%;margin-top:4px"><option value="">— pick a saved detail —</option></select></label><label>Karigar name *<input name="name" required placeholder="Full name" list="karigarNameOptions"></label><datalist id="karigarNameOptions">${[...new Set(items.map(it=>String(it.values?.karigar||'').trim()).filter(Boolean))].map(n=>`<option value="${esc(n)}">`).join('')}</datalist><label>Mobile number<input name="phone" type="tel" placeholder="Phone number"></label><label style="grid-column:1/-1">Full address<textarea name="address" rows="3" placeholder="House, street, city, PIN code"></textarea></label><div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="primary" type="submit">Save Karigar</button><button type="button" data-k-clear>Clear form</button></div></form></section><section class="panel" style="padding:18px;margin-top:16px"><h2>Saved Karigars</h2><div style="overflow:auto"><table><thead><tr><th>Name</th><th>Mobile</th><th>Address</th><th>Stock entries</th><th>Actions</th></tr></thead><tbody>${rows||'<tr><td colspan="5">No karigars saved yet.</td></tr>'}</tbody></table></div></section>`;
 }
 function loadKarigarContact(key){
  const c=getKarigarContacts()[key];if(!c)return;const f=$('#karigarContactForm');f.elements.key.value=key;f.elements.name.value=c.name||'';f.elements.phone.value=c.phone||'';f.elements.address.value=c.address||'';f.scrollIntoView({behavior:'smooth',block:'start'});
@@ -559,13 +589,13 @@ function homeView(){
     ${field('ctaText','Main button text')}
     ${field('categoryTitle','Category section heading')}${field('categorySubtitle','Category section subheading')}
     ${field('catalogTitle','Product section heading')}${field('catalogSubtitle','Product section subheading')}
-    ${area('aboutText','About / Our story message',4,'Shown when a customer taps “Our story”.')}
+    ${area('aboutText','About / Our story message',4,'Shown when a customer taps "Our story".')}
     ${area('footerQuestion','Footer contact message',2)}${area('footerNote','Footer availability note',2)}
   </div><div class="home-actions"><button type="button" data-action="home-reset">Reset to defaults</button><button type="submit" class="primary">Save homepage</button></div></form></section>
   ${homeImagesView()}`;
 }
 
-function renderKarigars(){
+function homeImagesView(){
  const images=readHomeImages();
  const cards=images.map(img=>`<article class="home-image-card"><img src="${esc(img.url)}" alt="${esc(img.name||'Homepage image')}" loading="lazy"><div class="home-image-info"><strong title="${esc(img.name||'Homepage image')}">${esc(img.name||'Homepage image')}</strong><label class="home-image-choice"><input type="radio" name="homeHeroImage" data-home-image-hero="${esc(img.url)}" ${img.hero?'checked':''}> Use as hero image</label><label class="home-image-choice"><input type="checkbox" data-home-image-gallery="${esc(img.url)}" ${img.showOnHome!==false?'checked':''}> Show in home gallery</label><button type="button" class="danger" data-home-image-delete="${esc(img.url)}">Remove image</button></div></article>`).join('');
  return `<section class="panel home-editor home-image-manager"><h2>Homepage images</h2><p class="home-intro">Upload store banners, saree photos or collection pictures here. Choose one as the hero image beside your headline and select which images appear in the home-page gallery. Product photos in Stock remain separate.</p>
@@ -574,13 +604,245 @@ function renderKarigars(){
  </section>`;
 }
 
+function detailsView(){
+  const details=readDetails();
+  const rows=details.map((d,i)=>`<tr><td>${esc(d.name)}</td><td>${esc(d.phone||'—')}</td><td>${esc(d.address||'—')}</td><td>${esc(d.notes||'—')}</td><td><button type="button" data-action="edit-detail" data-i="${i}">Edit</button> <button type="button" data-action="del-detail" data-i="${i}" class="danger">Delete</button></td></tr>`).join('');
+  return `
+    <div class="panel">
+      <h2>Details</h2>
+      <p class="muted">Save reusable contact info. Pick from these when adding a Customer or Karigar to auto-fill the form.</p>
+      <button class="primary" data-action="add-detail" style="margin-bottom:12px">+ New Detail</button>
+      <div style="overflow:auto"><table><thead><tr><th>Name *</th><th>Phone</th><th>Address</th><th>Notes</th><th>Actions</th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="muted">No details saved yet.</td></tr>'}</tbody></table></div>
+    </div>
+    <dialog id="detailDlg" style="width:min(560px,94vw)">
+      <h2 id="detailDlgTitle">New Detail</h2>
+      <form id="detailForm">
+        <div class="grid">
+          <div class="field wide"><label for="detailName">Name *<input id="detailName" name="name" required placeholder="Full name" autocomplete="off"></label></div>
+          <div class="field"><label for="detailPhone">Phone<input id="detailPhone" name="phone" type="tel" placeholder="Phone number" autocomplete="off"></label></div>
+          <div class="field wide"><label for="detailAddress">Address<textarea id="detailAddress" name="address" rows="2" placeholder="Street, city, PIN" style="width:100%;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:7px 9px;box-sizing:border-box;resize:vertical"></textarea></label></div>
+          <div class="field wide"><label for="detailNotes">Notes<textarea id="detailNotes" name="notes" rows="2" placeholder="Any extra info" style="width:100%;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:7px 9px;box-sizing:border-box;resize:vertical"></textarea></label></div>
+        </div>
+        <div class="dlgfoot"><div class="btns">
+          <button type="button" id="detailCancelBtn">Cancel</button>
+          <button class="primary" type="submit">Save Detail</button>
+        </div></div>
+      </form>
+    </dialog>`;
+}
+
+function salesView(){
+  const customers=readCustomers();
+  const sales=readSales().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  const rows=sales.map(s=>{
+    const cust=customers.find(c=>c.id===s.customerId);
+    const itemCount=Array.isArray(s.items)?s.items.length:0;
+    return `<tr data-sale-id="${esc(s.id)}"><td>${esc(s.date||'—')}</td><td>${esc(cust?.name||'—')}</td><td>${itemCount} item(s)</td><td class="num">${money(s.totalAmount||0)}</td><td><span class="badge ${s.paymentStatus==='Paid'?'ok':'warn'}">${esc(s.paymentStatus||'—')}</span></td><td><button type="button" data-action="view-sale" data-id="${esc(s.id)}">View</button></td></tr>`;
+  }).join('');
+  return `
+    <div class="panel">
+      <h2>Sales & Transactions</h2>
+      <p class="muted">Record sales, track stock depletion, and manage customer purchases.</p>
+      <button class="primary" data-action="add-sale" style="margin-bottom:12px">+ Record New Sale</button>
+      <div style="overflow:auto"><table><thead><tr><th>Date</th><th>Customer</th><th>Items</th><th>Total Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="muted">No sales recorded yet.</td></tr>'}</tbody></table></div>
+    </div>
+    <dialog id="saleDlg" style="width:min(900px,94vw)">
+      <h2 id="saleDlgTitle">Record New Sale</h2>
+      <form id="saleForm">
+        <div class="grid">
+          <div class="field wide"><label for="saleCustomer">Customer *<select id="saleCustomer" required><option value="">Select customer or add new...</option>${customers.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></label><button type="button" id="addNewCustBtn" style="margin-top:6px">+ Add new customer</button></div>
+          <div class="field"><label for="saleDate">Date *<input id="saleDate" type="date" required></label></div>
+          <div class="field"><label for="salePaymentStatus">Payment Status<select id="salePaymentStatus"><option value="Pending">Pending</option><option value="Paid">Paid</option></select></label></div>
+          <div class="field wide"><label>Items sold<div id="saleItems" style="margin-top:8px;display:grid;gap:8px"></div><button type="button" id="addSaleItem" style="margin-top:8px">+ Add item line</button></label></div>
+          <div class="field wide sale-profit" id="saleProfitDiv" style="display:none">
+            <div>Cost basis: <b id="saleCostBasis">₹0</b></div>
+            <div>Live profit estimate: <b id="saleProfitEst">₹0</b></div>
+          </div>
+        </div>
+        <div class="dlgfoot">
+          <div class="live">Total sale: <b id="saleTotal">₹0</b></div>
+          <div class="btns">
+            <button type="button" id="saleCancelBtn">Cancel</button>
+            <button class="primary" type="submit">Save Sale</button>
+          </div>
+        </div>
+      </form>
+    </dialog>`;
+}
+
+function addSaleItemField(){
+  const saleItems=$('#saleItems');
+  if(!saleItems) return;
+  const index=saleItems.children.length;
+  const div=document.createElement('div');
+  div.className='sale-line';
+  div.innerHTML=`
+    <select name="item_${index}_id" class="sale-item-select" data-index="${index}">
+      <option value="">Select saree...</option>
+      ${items.map(it=>`<option value="${esc(it.id)}">${esc(it.values.description||it.id)} (₹${Number(it.values.price||0).toLocaleString('en-IN')})</option>`).join('')}
+    </select>
+    <input type="number" name="item_${index}_qty" min="1" max="999" value="1" placeholder="Qty" class="sale-item-qty" data-index="${index}" style="width:100%;box-sizing:border-box">
+    <div class="num" id="item_${index}_subtotal" style="padding:7px 9px">₹0</div>
+    <button type="button" data-remove-item="${index}" class="danger" style="width:auto">Remove</button>`;
+  saleItems.appendChild(div);
+}
+
+function updateSaleTotal(){
+  const form=$('#saleForm');
+  if(!form) return;
+  let total=0, costBasis=0;
+  const selects=form.querySelectorAll('.sale-item-select');
+  selects.forEach(sel=>{
+    const idx=sel.dataset.index;
+    const itemId=sel.value;
+    const qty=Number(form.querySelector(`[name="item_${idx}_qty"]`)?.value||0);
+    const item=items.find(it=>it.id===itemId);
+    if(item&&qty>0){
+      const price=Number(item.values.price||0);
+      const cost=Number(item.values.costPrice||0);
+      const subtotal=price*qty;
+      const subcost=cost*qty;
+      total+=subtotal;
+      costBasis+=subcost;
+      const subtotalEl=$(`#item_${idx}_subtotal`);
+      if(subtotalEl) subtotalEl.textContent='₹'+subtotal.toLocaleString('en-IN');
+    }
+  });
+  const totalEl=$('#saleTotal');
+  if(totalEl) totalEl.textContent='₹'+total.toLocaleString('en-IN');
+  const costEl=$('#saleCostBasis');
+  if(costEl) costEl.textContent='₹'+costBasis.toLocaleString('en-IN');
+  const profitEl=$('#saleProfitEst');
+  if(profitEl) profitEl.textContent='₹'+(total-costBasis).toLocaleString('en-IN');
+}
+
+function recordSale(){
+  const form=$('#saleForm');
+  const customerId=form.querySelector('#saleCustomer').value;
+  const date=form.querySelector('#saleDate').value;
+  const paymentStatus=form.querySelector('#salePaymentStatus').value;
+  if(!customerId){toast('Select or create a customer');return;}
+  if(!date){toast('Select a date');return;}
+
+  const saleItems=[];
+  let totalAmount=0;
+  form.querySelectorAll('.sale-item-select').forEach((sel,idx)=>{
+    const itemId=sel.value;
+    const qty=Number(form.querySelector(`[name="item_${idx}_qty"]`)?.value||0);
+    if(itemId&&qty>0){
+      const item=items.find(it=>it.id===itemId);
+      if(item){
+        const currentQty=Number(item.values.quantity||1);
+        if(qty>currentQty){toast(`Only ${currentQty} unit(s) available for ${item.values.description}`);return;}
+        const price=Number(item.values.price||0);
+        const subtotal=price*qty;
+        saleItems.push({itemId,qty,salePrice:price});
+        totalAmount+=subtotal;
+        item.values.quantity=currentQty-qty;
+        item.values.quantitySold=(Number(item.values.quantitySold||0))+qty;
+        item.values.lastSoldDate=date;
+      }
+    }
+  });
+
+  if(saleItems.length===0){toast('Add at least one item');return;}
+
+  const sale={
+    id:'sale_'+uid(),
+    date,
+    customerId,
+    items:saleItems,
+    totalAmount,
+    paymentStatus
+  };
+
+  const sales=readSales();
+  sales.push(sale);
+  saveSales(sales);
+  persist();
+
+  const customers=readCustomers();
+  const cust=customers.find(c=>c.id===customerId);
+  if(cust){
+    cust.totalSpent=(Number(cust.totalSpent||0))+totalAmount;
+    if(paymentStatus!=='Paid') cust.pendingPayment=(Number(cust.pendingPayment||0))+totalAmount;
+    saveCustomers(customers);
+  }
+
+  $('#saleDlg').close();
+  renderAll();
+  toast('Sale recorded successfully');
+}
+
+function addCustStockItemField(){
+  const custStockItems=$('#custStockItems');
+  if(!custStockItems) return;
+  const index=custStockItems.children.length;
+  const div=document.createElement('div');
+  div.className='sale-line';
+  const inStockItems=items.filter(it=>Number(it.values.quantity||0)>0);
+  div.innerHTML=`
+    <select name="cust_stock_${index}_id" class="cust-stock-select" data-index="${index}">
+      <option value="">Select saree...</option>
+      ${inStockItems.map(it=>`<option value="${esc(it.id)}">${esc(it.values.description||it.id)} (₹${Number(it.values.price||0).toLocaleString('en-IN')})</option>`).join('')}
+    </select>
+    <input type="number" name="cust_stock_${index}_qty" min="1" max="999" value="1" placeholder="Qty" class="cust-stock-qty" data-index="${index}" style="width:100%;box-sizing:border-box">
+    <div class="num" id="cust_stock_${index}_subtotal" style="padding:7px 9px">₹0</div>
+    <button type="button" data-remove-cust-item="${index}" class="danger" style="width:auto">Remove</button>`;
+  custStockItems.appendChild(div);
+  updateCustStockSummary();
+}
+
+function updateCustStockSummary(){
+  const custStockItems=$('#custStockItems');
+  if(!custStockItems) return;
+  let count=0, total=0;
+  custStockItems.querySelectorAll('.cust-stock-select').forEach(sel=>{
+    const idx=sel.dataset.index;
+    const itemId=sel.value;
+    const qty=Number(custStockItems.querySelector(`[name="cust_stock_${idx}_qty"]`)?.value||0);
+    const item=items.find(it=>it.id===itemId);
+    if(item&&qty>0&&itemId){
+      const price=Number(item.values.price||0);
+      const subtotal=price*qty;
+      total+=subtotal;
+      count+=qty;
+      const subtotalEl=document.getElementById(`cust_stock_${idx}_subtotal`);
+      if(subtotalEl) subtotalEl.textContent='₹'+subtotal.toLocaleString('en-IN');
+    } else {
+      const subtotalEl=document.getElementById(`cust_stock_${idx}_subtotal`);
+      if(subtotalEl) subtotalEl.textContent='₹0';
+    }
+  });
+  const countEl=$('#custStockCount'), totalEl=$('#custStockTotal'), summary=$('#custStockSummary');
+  if(countEl) countEl.textContent=count;
+  if(totalEl) totalEl.textContent='₹'+total.toLocaleString('en-IN');
+  if(summary) summary.style.display=count>0?'block':'none';
+}
+
+function renderPeople(){
+    const toggle='<div class="people-toggle">'+
+      '<button data-people="customers" class="'+(peopleMode==='customers'?'active':'')+'" >👥 Customers</button>'+
+      '<button data-people="karigars" class="'+(peopleMode==='karigars'?'active':'')+'" >🔨 Karigar</button>'+
+      '<button data-people="details" class="'+(peopleMode==='details'?'active':'')+'" >📋 Details</button>'+
+    '</div>';
+    if(peopleMode==='customers'){
+      $('#main').innerHTML=toggle+customersView();
+    } else if(peopleMode==='details'){
+      $('#main').innerHTML=toggle+detailsView();
+    } else {
+      $('#main').innerHTML=toggle+'<div id="karigarWrap"></div>';
+      renderKarigars();
+    }
+  }
+
 function renderAll(){
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===view)));
   if(view==='stock') renderStock();
   else if(view==='fields') $('#main').innerHTML=fieldsView();
-  else if(view==='customers') $('#main').innerHTML=customersView();
-  else if(view==='karigars') renderKarigars();
-  else if(view==='home') $('#main').innerHTML=homeView();
+  else if(view==='people') renderPeople();
+  else if(view==='sales') $('#main').innerHTML=salesView();
+    else if(view==='home') $('#main').innerHTML=homeView();
 }
 
 function formFields(v){
@@ -597,10 +859,34 @@ function formFields(v){
     }
     if(f.type==='photo'){
       const photos=Array.isArray(editingPhoto)?editingPhoto:(editingPhoto?[editingPhoto]:[]);
-      return `<div class="field wide"><label for="photosInput">Photos (select multiple)</label>
-        <input id="photosInput" type="file" name="photo" accept="image/*" multiple>
-        <div id="photoprevwrap" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">${photos.map(src=>`<img class="thumb lg" src="${src}" alt="Existing photo">`).join('')}</div>
-        <small class="muted">You can select several photos at once. Selecting new photos replaces the saved photo set.</small></div>`;
+      return `<div class="field wide">
+        <label for="photosInput" style="font-size:16px;font-weight:700">📸 Photos</label>
+        <div style="background:var(--bg);padding:16px;border-radius:8px;margin:10px 0">
+          <div style="margin-bottom:12px">
+            <input id="photosInput" type="file" name="photo" accept="image/*" multiple style="padding:12px;font-size:14px;cursor:pointer">
+            <div style="margin-top:8px;font-size:13px;color:var(--muted)">💡 <strong>Tip:</strong> You can pick multiple photos at once</div>
+          </div>
+          ${photos.length>0?`<div style="margin-top:16px">
+            <p style="margin:0 0 12px;font-weight:600;color:var(--fg);font-size:14px">Your Photos (${photos.length}):</p>
+            <div id="photoprevwrap" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;margin-top:12px">${photos.map((src,i)=>`
+              <div style="position:relative;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);transition:transform 0.2s" class="photo-item">
+                <img src="${src}" alt="Photo ${i+1}" style="width:100%;height:160px;object-fit:cover;display:block;border-radius:8px">
+                <button type="button" class="photo-remove-btn" data-photo-idx="${i}" title="Click to remove this photo" style="position:absolute;top:8px;right:8px;width:44px;height:44px;border-radius:50%;background:#d32f2f;color:white;border:3px solid white;cursor:pointer;font-size:24px;padding:0;display:grid;place-items:center;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all 0.2s;font-weight:bold;line-height:1" onmouseover="this.style.transform='scale(1.1)';this.style.background='#b71c1c'" onmouseout="this.style.transform='scale(1)';this.style.background='#d32f2f'">
+                  ✕
+                </button>
+              </div>
+            `).join('')}</div>
+          </div>`:`<div style="padding:20px;background:var(--surface);border:2px dashed var(--line);border-radius:8px;text-align:center;color:var(--muted)">
+            <div style="font-size:32px;margin-bottom:8px">📷</div>
+            <p style="margin:0;font-size:14px">No photos yet. Click "Choose files" above to add some.</p>
+          </div>`}
+        </div>
+        <small style="color:var(--muted);display:block;margin-top:12px;font-size:13px">
+          ✓ You can add more photos by selecting again<br>
+          ✓ Click the red <strong>✕</strong> button to remove any photo<br>
+          ✓ All photos will save together
+        </small>
+      </div>`;
     }
     if(f.key==='karigar'){
       const contacts=syncKarigarContacts();
@@ -608,11 +894,11 @@ function formFields(v){
       const opts=[...new Set(names)].map(n=>`<option value="${esc(n)}">`).join('');
       return `<div class="field"><label for="${id}">${esc(f.label)}</label><input id="${id}" name="karigar" type="text" value="${esc(v.karigar||'')}" list="${id}_saved" placeholder="Choose saved karigar or type name" autocomplete="off"><datalist id="${id}_saved">${opts}</datalist><small class="muted">Add new names in the Karigar Details tab. Saved contact details fill automatically.</small></div>`;
     }
-    if(f.key==='karigarPhone' || f.key==='karigarAddress'){
+    if(f.key==='karigarPhone'||f.key==='karigarAddress'){
       const isAddress=f.key==='karigarAddress';
       return `<div class="field${isAddress?' wide':''}"><label for="${id}">${esc(f.label)}</label>${isAddress?`<textarea id="${id}" name="${f.key}" rows="2" style="width:100%;resize:vertical;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:7px 9px;box-sizing:border-box">${esc(v[f.key]||'')}</textarea>`:`<input id="${id}" name="${f.key}" type="tel" value="${esc(v[f.key]||'')}">`}</div>`;
     }
-    if(f.type==='dropdown' && f.key==='category'){
+    if(f.type==='dropdown'&&f.key==='category'){
       const choices=(f.options||[]).map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
       return `<div class="field"><label for="${id}_preset">${esc(f.label)} — choose or type</label>
         <select id="${id}_preset" aria-label="Choose a saved category"><option value="">Choose a category…</option>${choices}</select>
@@ -631,7 +917,7 @@ function formFields(v){
       return `<div class="field"><label for="${id}">${esc(f.label)}</label>
         <input id="${id}" type="date" name="${f.key}" value="${esc(v[f.key]||'')}"></div>`;
     }
-    return f.key==='description' ? `<div class="field wide"><label for="${id}">${esc(f.label)} / More details</label><textarea id="${id}" name="${f.key}" rows="3" style="width:100%;resize:vertical;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:7px 9px;box-sizing:border-box">${esc(v[f.key]||'')}</textarea></div>` : `<div class="field"><label for="${id}">${esc(f.label)}</label><input id="${id}" type="text" name="${f.key}" value="${esc(v[f.key]||'')}"></div>`;
+    return f.key==='description'?`<div class="field wide"><label for="${id}">${esc(f.label)} / More details</label><textarea id="${id}" name="${f.key}" rows="3" style="width:100%;resize:vertical;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:7px 9px;box-sizing:border-box">${esc(v[f.key]||'')}</textarea></div>`:`<div class="field"><label for="${id}">${esc(f.label)}</label><input id="${id}" type="text" name="${f.key}" value="${esc(v[f.key]||'')}"></div>`;
   }).join('');
 }
 
@@ -656,7 +942,6 @@ function openForm(id){
   $('#dlg').showModal();
 }
 
-
 function printSpecificItemForm(){
   const form=$('#itemForm');
   const vals={...(items.find(i=>i.id===editingId)?.values||{}),...readForm(form)};
@@ -668,7 +953,7 @@ function printSpecificItemForm(){
     let value=vals[f.key];
     if(f.type==='stage') value=value&&typeof value==='object'?`${value.done?'Done':'Pending'}${value.cost!=null?' — '+money(value.cost):''}`:(value||'Pending');
     else if(value==null||value==='') value='—';
-    else if(f.type==='date' && /^\d{4}-\d{2}-\d{2}$/.test(String(value))) value=new Date(value+'T00:00:00').toLocaleDateString('en-IN');
+    else if(f.type==='date'&&/^\d{4}-\d{2}-\d{2}$/.test(String(value))) value=new Date(value+'T00:00:00').toLocaleDateString('en-IN');
     return `<tr><th>${esc(f.label)}</th><td>${esc(String(value))}</td></tr>`;
   }).join('');
   const photoHtml=photos.map(src=>`<img src="${src}" style="max-width:140px;max-height:160px;object-fit:contain;margin:5px">`).join('')||'<span>Photos will appear here after saved images are loaded.</span>';
@@ -681,7 +966,7 @@ function readForm(form){
   const fd=new FormData(form), out={};
   schema.filter(f=>f.enabled&&f.type!=='computed'&&f.type!=='photo').forEach(f=>{
     if(f.type==='stage') out[f.key]={done:fd.get(f.key+'__status')==='done',cost:Number(fd.get(f.key+'__cost')||0)};
-    else if(f.type==='number'){const n=fd.get(f.key); out[f.key]=(n===null||n==='')?null:Number(n);}
+    else if(f.type==='number'){const n=fd.get(f.key);out[f.key]=(n===null||n==='')?null:Number(n);}
     else out[f.key]=String(fd.get(f.key)??'');
   });
   return out;
@@ -706,7 +991,7 @@ function shrink(file){
       img.onload=()=>{
         const s=Math.min(1,480/Math.max(img.width,img.height));
         const c=document.createElement('canvas');
-        c.width=Math.round(img.width*s); c.height=Math.round(img.height*s);
+        c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);
         c.getContext('2d').drawImage(img,0,0,c.width,c.height);
         resolve(c.toDataURL('image/jpeg',0.8));
       };
@@ -716,16 +1001,15 @@ function shrink(file){
   });
 }
 
-
 function openKarigarReport(){
   const names=[...new Set(items.map(it=>String(it.values?.karigar||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   if(!names.length){toast('Add a karigar name to at least one item first');return;}
   document.getElementById('karigarReportDialog')?.remove();
-  const dialog=document.createElement('div'); dialog.id='karigarReportDialog';
+  const dialog=document.createElement('div');dialog.id='karigarReportDialog';
   dialog.innerHTML=`<div class="kr-backdrop"></div><section class="kr-modal" role="dialog" aria-modal="true" aria-labelledby="krTitle"><header><h2 id="krTitle">Karigar Purchase Form</h2><button type="button" data-kr-close aria-label="Close">✕</button></header><div class="kr-body"><label>Karigar name<select id="krName"><option value="">Select karigar</option>${names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}</select></label><h3>Karigar Details</h3><label>Mobile number<input id="krPhone" type="tel" placeholder="Enter mobile number"></label><label>Address<textarea id="krAddress" rows="2" placeholder="Enter full address"></textarea></label><label>Items to include<select id="krMode"><option value="1">One date</option><option value="2">Between two dates</option><option value="3">All dates</option></select></label><div id="krSingleWrap"><label>Entry date<input id="krSingleDate" type="date"></label></div><div id="krRangeWrap" hidden><label>Start date<input id="krStart" type="date"></label><label>End date<input id="krEnd" type="date"></label></div><p class="kr-hint">Mobile number and address auto-fill from saved records with the same karigar name. You can edit them here for this report.</p></div><footer><button type="button" data-kr-close>Cancel</button><button type="button" class="primary" id="krGenerate">Generate Form / PDF</button></footer></section>`;
   document.body.appendChild(dialog);
   const $id=id=>dialog.querySelector('#'+id);
-  const close=()=>dialog.remove(); dialog.querySelectorAll('[data-kr-close],.kr-backdrop').forEach(el=>el.addEventListener('click',close));
+  const close=()=>dialog.remove();dialog.querySelectorAll('[data-kr-close],.kr-backdrop').forEach(el=>el.addEventListener('click',close));
   const fillContact=()=>{const name=$id('krName').value.toLowerCase();const matched=items.filter(it=>String(it.values?.karigar||'').trim().toLowerCase()===name).map(it=>it.values||{});$id('krPhone').value=matched.map(v=>String(v.karigarPhone||v.mobile||v.phone||'').trim()).find(Boolean)||'';$id('krAddress').value=matched.map(v=>String(v.karigarAddress||v.address||'').trim()).find(Boolean)||'';const dates=matched.map(v=>String(v.date||'').trim()).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort();$id('krSingleDate').value=dates[dates.length-1]||todayStr();$id('krStart').value=dates[0]||todayStr();$id('krEnd').value=dates[dates.length-1]||todayStr();};
   $id('krName').addEventListener('change',fillContact);
   $id('krMode').addEventListener('change',()=>{$id('krSingleWrap').hidden=$id('krMode').value!=='1';$id('krRangeWrap').hidden=$id('krMode').value!=='2';});
@@ -748,8 +1032,6 @@ function openKarigarReport(){
   });
 }
 
-
-// Customer form submission
 document.addEventListener('submit',e=>{
   if(e.target.id==='customerForm'){
     e.preventDefault();
@@ -772,6 +1054,69 @@ document.addEventListener('submit',e=>{
     };
     if(idx>=0) customers[idx]=customer;
     else customers.push(customer);
+
+    // Process stock items if any were added
+    const custStockItems=$('#custStockItems');
+    const saleLineItems=[];
+    let totalAmount=0;
+    if(custStockItems){
+      custStockItems.querySelectorAll('.cust-stock-select').forEach((sel,loopIdx)=>{
+        const itemIdx=sel.dataset.index;
+        const itemId=sel.value;
+        const qty=Number(custStockItems.querySelector(`[name="cust_stock_${itemIdx}_qty"]`)?.value||0);
+        if(itemId&&qty>0){
+          const item=items.find(it=>it.id===itemId);
+          if(item){
+            const currentQty=Number(item.values.quantity||1);
+            if(qty>currentQty){toast(`Only ${currentQty} unit(s) available for ${item.values.description}`);return;}
+            const price=Number(item.values.price||0);
+            const subtotal=price*qty;
+            saleLineItems.push({itemId,qty,salePrice:price});
+            totalAmount+=subtotal;
+            item.values.quantity=currentQty-qty;
+            item.values.quantitySold=(Number(item.values.quantitySold||0))+qty;
+            item.values.lastSoldDate=todayStr();
+          }
+        }
+      });
+    }
+
+    if(saleLineItems.length>0){
+      const sale={
+        id:'sale_'+uid(),
+        date:todayStr(),
+        customerId:id,
+        items:saleLineItems,
+        totalAmount,
+        paymentStatus:'Pending'
+      };
+      const sales=readSales();
+      sales.push(sale);
+      saveSales(sales);
+      persist();
+      // Update customer totals
+      const updatedCustomers=readCustomers();
+      const custRecord=updatedCustomers.find(c=>c.id===id);
+      if(custRecord){
+        custRecord.totalSpent=(Number(custRecord.totalSpent||0))+totalAmount;
+        custRecord.pendingPayment=(Number(custRecord.pendingPayment||0))+totalAmount;
+        saveCustomers(updatedCustomers);
+      } else {
+        customer.totalSpent=(Number(customer.totalSpent||0))+totalAmount;
+        customer.pendingPayment=(Number(customer.pendingPayment||0))+totalAmount;
+        if(saveCustomers(customers)){
+          toast(idx>=0?'Customer updated with sale':'Customer added with sale');
+          $('#customerDlg').close();
+          renderAll();
+        }
+        return;
+      }
+      toast(idx>=0?'Customer updated with sale':'Customer added with sale');
+      $('#customerDlg').close();
+      renderAll();
+      return;
+    }
+
     if(saveCustomers(customers)){
       toast(idx>=0?'Customer updated':'Customer added');
       $('#customerDlg').close();
@@ -785,18 +1130,15 @@ document.addEventListener('submit',e=>{
  contacts[key]={name,phone:f.elements.phone.value.trim(),address:f.elements.address.value.trim()};
  if(oldKey&&oldKey!==key) delete contacts[oldKey];
  if(!saveKarigarContacts(contacts))return;
- // Keep the same contact fields in all existing stock rows with this karigar name for compatibility.
  for(const it of items){if(normalizedName(it.values?.karigar)===key){it.values.karigar=name;it.values.karigarPhone=contacts[key].phone;it.values.karigarAddress=contacts[key].address;}}
  persist();toast('Karigar details saved');renderKarigars();
 });
 
-// Event wiring (delegated, so re-rendered content keeps working)
 document.querySelector('.tabs').addEventListener('click',e=>{
-  const b=e.target.closest('[data-tab]'); if(!b) return;
-  view=b.dataset.tab; renderAll();
+  const b=e.target.closest('[data-tab]');if(!b) return;
+  view=b.dataset.tab;renderAll();
 });
 
-// Customer management event handlers
 function openCustomerForm(id){
   const dlg=$('#customerDlg'),form=$('#customerForm');
   form.dataset.custId=id||'';
@@ -813,6 +1155,12 @@ function openCustomerForm(id){
     $('#customerDlgTitle').textContent='New Customer';
     form.reset();
   }
+  const custStockItems=$('#custStockItems');
+  if(custStockItems) custStockItems.innerHTML='';
+  const custStockSummary=$('#custStockSummary');
+  if(custStockSummary) custStockSummary.style.display='none';
+  const custPicker=$('#custDetailPicker');
+  if(custPicker){const det=readDetails();custPicker.innerHTML='<option value="">— pick a saved detail —</option>'+det.map((d,i)=>`<option value="${i}">${esc(d.name)}${d.phone?' · '+esc(d.phone):''}</option>`).join('');}
   dlg.showModal();
 }
 
@@ -846,19 +1194,18 @@ $('#main').addEventListener('click',e=>{
   }
   if(t.closest('[data-k-edit]')) return loadKarigarContact(t.closest('[data-k-edit]').dataset.kEdit);
   if(t.closest('[data-k-history]')) return showKarigarHistory(t.closest('[data-k-history]').dataset.kHistory);
-  if(t.closest('[data-k-clear]')) { $('#karigarContactForm')?.reset(); if($('#karigarContactForm')) $('#karigarContactForm').elements.key.value=''; return; }
-
+  if(t.closest('[data-k-clear]')) {$('#karigarContactForm')?.reset();if($('#karigarContactForm')) $('#karigarContactForm').elements.key.value='';return;}
   if(t.closest('[data-action="karigar-report"]')) return openKarigarReport();
   if(t.closest('[data-action="add"]')) return openForm(null);
   if(t.closest('[data-action="clear-find"]')){selectedFindId=null;findQuery='';const inp=$('#findItemQuery');if(inp)inp.value='';return renderBody();}
   if(t.closest('[data-action="clear-filters"]')){Object.assign(finder,{q:'',priceExact:'',priceMin:'',priceMax:'',category:'',mode:'filter'});return renderStock();}
-  if(t.closest('[data-action="find-sort-price"]')){ if(sortKey==='price') sortDir=-sortDir; else {sortKey='price';sortDir=1;} return renderBody(); }
+  if(t.closest('[data-action="find-sort-price"]')){if(sortKey==='price') sortDir=-sortDir;else {sortKey='price';sortDir=1;}return renderBody();}
   const findBtn=t.closest('[data-action="choose-find"]');if(findBtn){selectFoundItem(findBtn.dataset.id);return;}
-  if(t.closest('[data-action="dir"]')){ sortDir=-sortDir; return renderBody(); }
+  if(t.closest('[data-action="dir"]')){sortDir=-sortDir;return renderBody();}
   const th=t.closest('th[data-sort]');
   if(th){
     const k=th.dataset.sort;
-    sortDir=sortKey===k?-sortDir:1; sortKey=k;
+    sortDir=sortKey===k?-sortDir:1;sortKey=k;
     return renderBody();
   }
   const tr=t.closest('tbody tr[data-id]');
@@ -871,23 +1218,23 @@ $('#main').addEventListener('click',e=>{
       openFields.has(f.key)?openFields.delete(f.key):openFields.add(f.key);
       return renderAll();
     case 'up':
-      if(i>0) [schema[i-1],schema[i]]=[schema[i],schema[i-1]]; break;
+      if(i>0) [schema[i-1],schema[i]]=[schema[i],schema[i-1]];break;
     case 'down':
-      if(i<schema.length-1) [schema[i],schema[i+1]]=[schema[i+1],schema[i]]; break;
+      if(i<schema.length-1) [schema[i],schema[i+1]]=[schema[i+1],schema[i]];break;
     case 'del':
       if(!btn.dataset.armed){btn.dataset.armed='1';btn.textContent='Confirm';return;}
-      schema.splice(i,1); break;
+      schema.splice(i,1);break;
     case 'optup':
-      if(j>0&&f.options) [f.options[j-1],f.options[j]]=[f.options[j],f.options[j-1]]; break;
+      if(j>0&&f.options) [f.options[j-1],f.options[j]]=[f.options[j],f.options[j-1]];break;
     case 'optdel':
-      if(f.options) f.options.splice(j,1); break;
+      if(f.options) f.options.splice(j,1);break;
     default: return;
   }
-  persist(); renderAll();
+  persist();renderAll();
 });
 
 $('#main').addEventListener('input',e=>{
-  if(e.target.id==='q'){filters.q=e.target.value; renderBody();}
+  if(e.target.id==='q'){filters.q=e.target.value;renderBody();}
   if(e.target.id==='findItemQuery'){findQuery=e.target.value;renderFindResults();}
   if(e.target.id==='finderQuery'){finder.q=e.target.value;renderBody();}
   if(e.target.id==='finderExact'){finder.priceExact=e.target.value;renderBody();}
@@ -898,14 +1245,14 @@ $('#main').addEventListener('input',e=>{
 
 $('#main').addEventListener('change',e=>{
   const t=e.target;
-  if(t.id==='sortKey'){ sortKey=t.value; return renderBody(); }
+  if(t.id==='sortKey'){sortKey=t.value;return renderBody();}
   if(t.id==='finderMode'){finder.mode=t.value;return renderBody();}
-  if(t.dataset.filter){filters[t.dataset.filter]=t.value; return renderBody();}
-  const row=t.closest('.frow'); if(!row) return;
+  if(t.dataset.filter){filters[t.dataset.filter]=t.value;return renderBody();}
+  const row=t.closest('.frow');if(!row) return;
   const f=schema[+row.dataset.i];
   switch(t.dataset.act){
-    case 'toggle': f.enabled=t.checked; break;
-    case 'label': f.label=t.value.trim()||f.label; break;
+    case 'toggle': f.enabled=t.checked;break;
+    case 'label': f.label=t.value.trim()||f.label;break;
     case 'type':
       f.type=t.value;
       if(f.type==='dropdown'&&!f.options) f.options=[];
@@ -913,15 +1260,14 @@ $('#main').addEventListener('change',e=>{
       break;
     case 'optrename': {
       const old=f.options[+t.dataset.j], neu=t.value.trim();
-      if(!neu||neu===old){ t.value=old; return; }
+      if(!neu||neu===old){t.value=old;return;}
       f.options[+t.dataset.j]=neu;
-      // Keep existing records pointing at the renamed option.
-      items.forEach(it=>{ if(it.values[f.key]===old) it.values[f.key]=neu; });
+      items.forEach(it=>{if(it.values[f.key]===old) it.values[f.key]=neu;});
       break;
     }
     default: return;
   }
-  persist(); renderAll();
+  persist();renderAll();
 });
 
 $('#main').addEventListener('submit',e=>{
@@ -931,9 +1277,9 @@ $('#main').addEventListener('submit',e=>{
     const name=String(new FormData(e.target).get('opt')||'').trim();
     if(!name) return;
     if(!f.options) f.options=[];
-    if(f.options.includes(name)){ toast('That option already exists'); return; }
+    if(f.options.includes(name)){toast('That option already exists');return;}
     f.options.push(name);
-    persist(); renderAll(); toast('Option added');
+    persist();renderAll();toast('Option added');
     return;
   }
   if(e.target.id!=='addField') return;
@@ -945,16 +1291,17 @@ $('#main').addEventListener('submit',e=>{
   const f={key:'custom_'+Date.now().toString(36),label,type,enabled:true};
   if(type==='dropdown') f.options=String(fd.get('options')||'').split(',').map(s=>s.trim()).filter(Boolean);
   schema.push(f);
-  persist(); renderAll(); toast('Field added');
+  persist();renderAll();toast('Field added');
 });
 
 function autofillKarigarContact(force=false){
-  const name=$('#f_karigar')?.value?.trim(); if(!name)return;
-  const c=getKarigarContacts()[normalizedName(name)]; if(!c)return;
+  const name=$('#f_karigar')?.value?.trim();if(!name)return;
+  const c=getKarigarContacts()[normalizedName(name)];if(!c)return;
   const phone=$('#f_karigarPhone'), address=$('#f_karigarAddress');
   if(phone&&(force||!phone.value.trim()))phone.value=c.phone||phone.value;
   if(address&&(force||!address.value.trim()))address.value=c.address||address.value;
 }
+
 $('#main').addEventListener('submit',e=>{
   if(e.target.id!=='homeForm') return;
   e.preventDefault();
@@ -1014,27 +1361,96 @@ $('#main').addEventListener('click',async e=>{
 $('#itemForm').addEventListener('input',e=>{if(e.target.id==='f_karigar')autofillKarigarContact(true);updateLive();});
 $('#itemForm').addEventListener('change',e=>{
   if(e.target.id==='f_karigar')autofillKarigarContact(true);
-  if(e.target.id==='f_category_preset' && e.target.value){const input=$('#f_category'); if(input){input.value=e.target.value; updateLive();}}
+  if(e.target.id==='f_category_preset'&&e.target.value){const input=$('#f_category');if(input){input.value=e.target.value;updateLive();}}
   if(e.target.name==='photo'&&e.target.files.length){
-    const wrap=$('#photoprevwrap'); wrap.innerHTML='';
-    [...e.target.files].forEach(file=>{const img=document.createElement('img');img.className='thumb lg';img.alt='Photo preview';img.src=URL.createObjectURL(file);wrap.appendChild(img);});
+    const wrap=$('#photoprevwrap');
+    if(!wrap) return;
+    const existingPhotos=Array.isArray(editingPhoto)?editingPhoto:(editingPhoto?[editingPhoto]:[]);
+    const newPhotoDivs=[...(e.target.files)].map((file,i)=>{
+      const div=document.createElement('div');
+      div.style.cssText='position:relative;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);transition:transform 0.2s';
+      div.className='photo-item';
+      const img=document.createElement('img');
+      img.alt='Photo preview '+(existingPhotos.length+i+1);
+      img.style.cssText='width:100%;height:160px;object-fit:cover;display:block;border-radius:8px';
+      img.src=URL.createObjectURL(file);
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='photo-remove-btn-new';
+      btn.dataset.newIdx=i;
+      btn.title='Click to remove this photo';
+      btn.style.cssText='position:absolute;top:8px;right:8px;width:44px;height:44px;border-radius:50%;background:#d32f2f;color:white;border:3px solid white;cursor:pointer;font-size:24px;padding:0;display:grid;place-items:center;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all 0.2s;font-weight:bold;line-height:1';
+      btn.textContent='✕';
+      btn.onmouseover=function(){this.style.transform='scale(1.1)';this.style.background='#b71c1c'};
+      btn.onmouseout=function(){this.style.transform='scale(1)';this.style.background='#d32f2f'};
+      div.appendChild(img);
+      div.appendChild(btn);
+      return div;
+    });
+    newPhotoDivs.forEach(div=>wrap.appendChild(div));
+    toast('✓ '+e.target.files.length+' photo'+(e.target.files.length===1?'':'s')+' added');
   }
 });
+
 $('#itemForm').addEventListener('click',e=>{
+  if(e.target.classList.contains('photo-remove-btn')){
+    e.preventDefault();
+    const idx=Number(e.target.dataset.photoIdx);
+    if(!isNaN(idx)){
+      const photos=Array.isArray(editingPhoto)?editingPhoto:(editingPhoto?[editingPhoto]:[]);
+      photos.splice(idx,1);
+      editingPhoto=photos.length?photos:null;
+      toast('✓ Photo removed');
+      openForm(editingId);
+    }
+    return;
+  }
+  if(e.target.classList.contains('photo-remove-btn-new')){
+    e.preventDefault();
+    const item=e.target.closest('.photo-item');
+    if(item){
+      item.style.opacity='0.5';
+      setTimeout(()=>item.remove(),200);
+      toast('✓ Photo removed');
+    }
+    return;
+  }
   if(e.target.id==='printSpecificBtn') return printSpecificItemForm();
   if(e.target.id==='cancelBtn') return $('#dlg').close();
   if(e.target.id==='delBtn'){
     const b=e.target;
     if(!b.dataset.armed){b.dataset.armed='1';b.textContent='Confirm delete';return;}
     items=items.filter(i=>i.id!==editingId);
-    persist(); $('#dlg').close(); renderAll(); toast('Deleted');
+    persist();$('#dlg').close();renderAll();toast('Deleted');
   }
 });
 
-// Customer dialog close handlers
 document.addEventListener('click',e=>{
   if(e.target.id==='custCancelBtn') $('#customerDlg').close();
   if(e.target.id==='historyCloseBtn') $('#customerHistoryDlg').close();
+  if(e.target.id==='addCustStockBtn'){e.preventDefault();addCustStockItemField();}
+  if(e.target.closest('[data-remove-cust-item]')){e.target.closest('[data-remove-cust-item]').closest('.sale-line').remove();updateCustStockSummary();}
+  if(e.target.closest('[data-action="add-detail"]')){
+    const dlg=$('#detailDlg');
+    if(dlg){$('#detailDlgTitle').textContent='New Detail';$('#detailForm').reset();dlg.dataset.i='';dlg.showModal();}
+    return;
+  }
+  if(e.target.closest('[data-action="edit-detail"]')){
+    const i=+e.target.closest('[data-action="edit-detail"]').dataset.i;
+    const d=readDetails()[i];if(!d)return;
+    const dlg=$('#detailDlg');
+    $('#detailDlgTitle').textContent='Edit Detail';
+    $('#detailName').value=d.name||'';$('#detailPhone').value=d.phone||'';
+    $('#detailAddress').value=d.address||'';$('#detailNotes').value=d.notes||'';
+    dlg.dataset.i=String(i);dlg.showModal();
+    return;
+  }
+  if(e.target.closest('[data-action="del-detail"]')){
+    const i=+e.target.closest('[data-action="del-detail"]').dataset.i;
+    const details=readDetails();details.splice(i,1);saveDetails(details);renderAll();toast('Deleted');
+    return;
+  }
+  if(e.target.id==='detailCancelBtn'){$('#detailDlg').close();return;}
 });
 
 $('#itemForm').addEventListener('submit',async e=>{
@@ -1049,266 +1465,20 @@ $('#itemForm').addEventListener('submit',async e=>{
   }
   if(old) Object.assign(old,{values,photo});
   else items.unshift({id:uid(),values,photo});
-  persist(); $('#dlg').close(); renderAll(); toast('Saved');
+  persist();$('#dlg').close();renderAll();toast('Saved');
 });
 
-// ════════════════════════════════════════════════════════════════════════
-// PHASE 2: SALES ENTRY & STOCK DEPLETION
-// ════════════════════════════════════════════════════════════════════════
-
-function salesView(){
-  const customers=readCustomers();
-  const sales=readSales().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
-  const rows=sales.map(s=>{
-    const cust=customers.find(c=>c.id===s.customerId);
-    const itemCount=Array.isArray(s.items)?s.items.length:0;
-    return `<tr data-sale-id="${esc(s.id)}"><td>${esc(s.date||'—')}</td><td>${esc(cust?.name||'—')}</td><td>${itemCount} item(s)</td><td class="num">${money(s.totalAmount||0)}</td><td><span class="badge ${s.paymentStatus==='Paid'?'ok':'warn'}">${esc(s.paymentStatus||'—')}</span></td><td><button type="button" data-action="view-sale" data-id="${esc(s.id)}">View</button> <button type="button" data-action="edit-sale" data-id="${esc(s.id)}">Edit</button></td></tr>`;
-  }).join('');
-  return `
-    <div class="panel">
-      <h2>Sales & Transactions</h2>
-      <p class="muted">Record sales, track stock depletion, and manage customer purchases.</p>
-      <button class="primary" data-action="add-sale" style="margin-bottom:12px">+ New Sale</button>
-      <div style="overflow:auto"><table><thead><tr><th>Date</th><th>Customer</th><th>Items</th><th>Total Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="muted">No sales yet.</td></tr>'}</tbody></table></div>
-    </div>
-    <dialog id="saleDlg" style="width:min(800px,94vw)">
-      <h2 id="saleDlgTitle">New Sale</h2>
-      <form id="saleForm">
-        <div class="grid">
-          <div class="field wide"><label for="saleCustomer">Customer *<select id="saleCustomer" required><option value="">Select customer...</option>${customers.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></label></div>
-          <div class="field"><label for="saleDate">Date *<input id="saleDate" type="date" required></label></div>
-          <div class="field"><label for="salePaymentStatus">Payment Status<select id="salePaymentStatus"><option value="Pending">Pending</option><option value="Paid">Paid</option></select></label></div>
-          <div class="field wide"><label>Items to sell<div id="saleItems" style="margin-top:8px;display:grid;gap:8px"></div><button type="button" id="addSaleItem" style="margin-top:8px">+ Add item</button></label></div>
-        </div>
-        <div class="dlgfoot">
-          <div class="live">Total: <b id="saleTotal">₹0</b></div>
-          <div class="btns">
-            <button type="button" id="saleCancelBtn">Cancel</button>
-            <button class="primary" type="submit">Save Sale</button>
-          </div>
-        </div>
-      </form>
-    </dialog>`;
-}
-
-function addSaleItemField(){
-  const saleItems=$('#saleItems');
-  if(!saleItems) return;
-  const index=saleItems.children.length;
-  const div=document.createElement('div');
-  div.className='detail';
-  div.innerHTML=`
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end">
-      <select name="item_${index}_id" class="sale-item-select" data-index="${index}">
-        <option value="">Select saree...</option>
-        ${items.map(it=>`<option value="${esc(it.id)}">${esc(it.values.description||it.id)} (₹${Number(it.values.price||0).toLocaleString('en-IN')})</option>`).join('')}
-      </select>
-      <input type="number" name="item_${index}_qty" min="1" max="999" value="1" placeholder="Qty" class="sale-item-qty" data-index="${index}">
-      <div class="num" id="item_${index}_subtotal">₹0</div>
-      <button type="button" data-remove-item="${index}" class="danger">Remove</button>
-    </div>`;
-  saleItems.appendChild(div);
-}
-
-function updateSaleTotal(){
-  const form=$('#saleForm');
-  if(!form) return;
-  let total=0;
-  const selects=form.querySelectorAll('.sale-item-select');
-  selects.forEach(sel=>{
-    const idx=sel.dataset.index;
-    const itemId=sel.value;
-    const qty=Number(form.querySelector(`[name="item_${idx}_qty"]`)?.value||0);
-    const item=items.find(it=>it.id===itemId);
-    if(item&&qty>0){
-      const price=Number(item.values.price||0);
-      const subtotal=price*qty;
-      total+=subtotal;
-      const subtotalEl=$(`#item_${idx}_subtotal`);
-      if(subtotalEl) subtotalEl.textContent='₹'+subtotal.toLocaleString('en-IN');
-    }
-  });
-  const totalEl=$('#saleTotal');
-  if(totalEl) totalEl.textContent='₹'+total.toLocaleString('en-IN');
-}
-
-function reduceSaleStock(saleItems){
-  for(const item of saleItems){
-    const saree=items.find(it=>it.id===item.itemId);
-    if(saree){
-      const currentQty=Number(saree.values.quantity||1);
-      saree.values.quantity=Math.max(0,currentQty-item.qty);
-      saree.values.quantitySold=(Number(saree.values.quantitySold||0))+item.qty;
-      saree.values.lastSoldDate=todayStr();
-    }
-  }
-  persist();
-}
-
-// ════════════════════════════════════════════════════════════════════════
-// PHASE 3: PROFIT TRACKING & PAYMENTS
-// ════════════════════════════════════════════════════════════════════════
-
-function profitView(){
-  const sales=readSales();
-  const profitEntries=[];
-  for(const sale of sales){
-    for(const item of (sale.items||[])){
-      const saree=items.find(it=>it.id===item.itemId);
-      if(saree){
-        const salePrice=Number(item.salePrice||0);
-        const costPrice=Number(saree.values.costPrice||0);
-        const workCost=Number(item.workCost||0);
-        const profit=salePrice-costPrice-workCost;
-        profitEntries.push({
-          date:sale.date,
-          customerId:sale.customerId,
-          itemId:item.itemId,
-          description:saree.values.description,
-          salePrice,
-          costPrice,
-          workCost,
-          profit
-        });
-      }
-    }
-  }
-  const totalProfit=profitEntries.reduce((n,p)=>n+p.profit,0);
-  const totalSalePrice=profitEntries.reduce((n,p)=>n+p.salePrice,0);
-  const rows=profitEntries.map(p=>`<tr><td>${esc(p.date||'—')}</td><td>${esc(p.description||'—')}</td><td class="num">${money(p.salePrice)}</td><td class="num">${money(p.costPrice)}</td><td class="num">${money(p.workCost)}</td><td class="num ${p.profit<0?'neg':'pos'}">${money(p.profit)}</td></tr>`).join('');
-  return `
-    <div class="panel">
-      <h2>Profit Analysis</h2>
-      <div class="stats">
-        <div class="stat"><b>${money(totalSalePrice)}</b><span>Total Sales</span></div>
-        <div class="stat"><b class="${totalProfit<0?'neg':'pos'}">${money(totalProfit)}</b><span>Total Profit</span></div>
-        <div class="stat"><b>${profitEntries.length}</b><span>Items Sold</span></div>
-      </div>
-      <div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Date</th><th>Item</th><th>Sale Price</th><th>Cost Price</th><th>Work Cost</th><th>Profit</th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="muted">No sales yet.</td></tr>'}</tbody></table></div>
-    </div>`;
-}
-
-// ════════════════════════════════════════════════════════════════════════
-// PHASE 4: REPORTING & ANALYTICS
-// ════════════════════════════════════════════════════════════════════════
-
-function analyticsView(){
-  const sales=readSales();
-  const customers=readCustomers();
-  const totalRevenue=sales.reduce((n,s)=>n+Number(s.totalAmount||0),0);
-  const totalPaid=sales.filter(s=>s.paymentStatus==='Paid').reduce((n,s)=>n+Number(s.totalAmount||0),0);
-  const totalPending=sales.filter(s=>s.paymentStatus!=='Paid').reduce((n,s)=>n+Number(s.totalAmount||0),0);
-  const categoryStats={};
-  for(const item of items){
-    const cat=String(item.values.category||'Other');
-    if(!categoryStats[cat]) categoryStats[cat]={count:0,value:0};
-    categoryStats[cat].count++;
-    categoryStats[cat].value+=Number(item.values.price||0);
-  }
-  const topCustomers=customers.map(c=>({...c,spent:sales.filter(s=>s.customerId===c.id).reduce((n,s)=>n+Number(s.totalAmount||0),0)})).sort((a,b)=>b.spent-a.spent).slice(0,5);
-  const catRows=Object.entries(categoryStats).map(([cat,stats])=>`<tr><td>${esc(cat)}</td><td>${stats.count}</td><td class="num">${money(stats.value)}</td></tr>`).join('');
-  const custRows=topCustomers.map(c=>`<tr><td>${esc(c.name)}</td><td class="num">${money(c.spent)}</td></tr>`).join('');
-  return `
-    <div class="panel">
-      <h2>Business Analytics</h2>
-      <div class="stats">
-        <div class="stat"><b>${money(totalRevenue)}</b><span>Total Revenue</span></div>
-        <div class="stat"><b class="pos">${money(totalPaid)}</b><span>Paid</span></div>
-        <div class="stat"><b class="warn">${money(totalPending)}</b><span>Pending</span></div>
-        <div class="stat"><b>${items.length}</b><span>Total Inventory</span></div>
-      </div>
-      <h3 style="margin-top:20px">By Category</h3>
-      <div style="overflow:auto"><table><thead><tr><th>Category</th><th>Items</th><th>Value</th></tr></thead><tbody>${catRows||'<tr><td colspan="3" class="muted">No data yet.</td></tr>'}</tbody></table></div>
-      <h3 style="margin-top:20px">Top Customers</h3>
-      <div style="overflow:auto"><table><thead><tr><th>Customer</th><th>Total Spent</th></tr></thead><tbody>${custRows||'<tr><td colspan="2" class="muted">No sales yet.</td></tr>'}</tbody></table></div>
-    </div>`;
-}
-
-// ════════════════════════════════════════════════════════════════════════
-// PHASE 5: UI REFINEMENTS & EXPORTS
-// ════════════════════════════════════════════════════════════════════════
-
-function exportSalesCSV(){
-  const sales=readSales();
-  const customers=readCustomers();
-  let csv='Date,Customer,Items,Amount,Status\n';
-  for(const s of sales){
-    const cust=customers.find(c=>c.id===s.customerId);
-    csv+=`${s.date},"${String(cust?.name||'').replace(/"/g,'""')}",${Array.isArray(s.items)?s.items.length:0},${s.totalAmount},"${s.paymentStatus}"\n`;
-  }
-  const blob=new Blob([csv],{type:'text/csv'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download=`sales-${todayStr()}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toast('Sales exported as CSV');
-}
-
-function exportInventoryCSV(){
-  let csv='Item ID,Description,Category,Sale Price,Cost Price,Quantity,Quantity Sold\n';
-  for(const it of items){
-    const v=it.values;
-    csv+=`${it.id},"${String(v.description||'').replace(/"/g,'""')}","${String(v.category||'').replace(/"/g,'""')}",${v.price||0},${v.costPrice||0},${v.quantity||1},${v.quantitySold||0}\n`;
-  }
-  const blob=new Blob([csv],{type:'text/csv'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download=`inventory-${todayStr()}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toast('Inventory exported as CSV');
-}
-
-// Add sales tab to navigation
-const tabsNav=document.querySelector('.tabs');
-if(tabsNav){
-  const button=document.createElement('button');
-  button.type='button';
-  button.setAttribute('data-tab','sales');
-  button.textContent='Sales';
-  tabsNav.insertBefore(button,tabsNav.querySelector('[data-tab="karigars"]'));
-
-  const button2=document.createElement('button');
-  button2.type='button';
-  button2.setAttribute('data-tab','profit');
-  button2.textContent='Profit';
-  tabsNav.insertBefore(button2,tabsNav.querySelector('[data-tab="karigars"]'));
-
-  const button3=document.createElement('button');
-  button3.type='button';
-  button3.setAttribute('data-tab','analytics');
-  button3.textContent='Analytics';
-  tabsNav.insertBefore(button3,tabsNav.querySelector('[data-tab="karigars"]'));
-}
-
-// Update renderAll to include new tabs
-const oldRenderAll=renderAll;
-renderAll=function(){
-  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===view)));
-  if(view==='stock') renderStock();
-  else if(view==='fields') $('#main').innerHTML=fieldsView();
-  else if(view==='customers') $('#main').innerHTML=customersView();
-  else if(view==='sales') $('#main').innerHTML=salesView();
-  else if(view==='profit') $('#main').innerHTML=profitView();
-  else if(view==='analytics') $('#main').innerHTML=analyticsView();
-  else if(view==='karigars') renderKarigars();
-  else if(view==='home') $('#main').innerHTML=homeView();
-};
-
-// Event handlers for sales
 $('#main').addEventListener('click',e=>{
-  if(e.target.closest('[data-action="add-sale"]')) {
+  if(e.target.closest('[data-action="add-sale"]')){
     const dlg=$('#saleDlg');
     if(dlg){
       dlg.dataset.saleId='';
-      $('#saleDlgTitle').textContent='New Sale';
+      $('#saleDlgTitle').textContent='Record New Sale';
       $('#saleForm').reset();
       $('#saleDate').value=todayStr();
       const saleItems=$('#saleItems');
       if(saleItems) saleItems.innerHTML='';
+      $('#saleProfitDiv').style.display='none';
       dlg.showModal();
     }
   }
@@ -1316,18 +1486,49 @@ $('#main').addEventListener('click',e=>{
     const saleId=e.target.closest('[data-action="view-sale"]').dataset.id;
     const sale=readSales().find(s=>s.id===saleId);
     if(sale){
-      toast('Sale details: '+JSON.stringify(sale).substring(0,100));
+      const customers=readCustomers();
+      const cust=customers.find(c=>c.id===sale.customerId);
+      const itemDetails=Array.isArray(sale.items)?sale.items.map(it=>{const item=items.find(x=>x.id===it.itemId);return `${item?.values.description||'Item'} × ${it.qty}`}).join(', '):'';
+      toast(`Sale: ${sale.date} | ${cust?.name||'—'} | ${itemDetails} | ${money(sale.totalAmount)}`);
     }
   }
   if(e.target.closest('[data-remove-item]')){
-    e.target.closest('[data-remove-item]').parentElement.remove();
+    e.target.closest('[data-remove-item]').closest('.sale-line').remove();
     updateSaleTotal();
+  }
+  if(e.target.closest('[data-people]')){
+    peopleMode=e.target.closest('[data-people]').dataset.people;
+    renderPeople();
+    return;
+  }
+  if(e.target.id==='addNewCustBtn'){
+    e.preventDefault();
+    openCustomerForm(null);
   }
 });
 
 document.addEventListener('change',e=>{
-  if(e.target.classList.contains('sale-item-select') || e.target.classList.contains('sale-item-qty')){
+  if(e.target.classList.contains('sale-item-select')||e.target.classList.contains('sale-item-qty')){
     updateSaleTotal();
+  }
+  if(e.target.classList.contains('cust-stock-select')||e.target.classList.contains('cust-stock-qty')){
+    updateCustStockSummary();
+  }
+  if(e.target.id==='custDetailPicker'&&e.target.value!==''){
+    const d=readDetails()[+e.target.value];if(!d)return;
+    if(d.name) $('#custName').value=d.name;
+    if(d.phone) $('#custPhone').value=d.phone;
+    if(d.address) $('#custAddress').value=d.address;
+    if(d.notes) $('#custNotes').value=d.notes;
+    e.target.value='';
+  }
+  if(e.target.id==='karigarDetailPicker'&&e.target.value!==''){
+    const d=readDetails()[+e.target.value];if(!d)return;
+    const f=$('#karigarContactForm');if(!f)return;
+    if(d.name&&f.elements.name) f.elements.name.value=d.name;
+    if(d.phone&&f.elements.phone) f.elements.phone.value=d.phone;
+    if(d.address&&f.elements.address) f.elements.address.value=d.address;
+    e.target.value='';
   }
 });
 
@@ -1341,62 +1542,26 @@ document.addEventListener('click',e=>{
 });
 
 document.addEventListener('submit',e=>{
-  if(e.target.id==='saleForm'){
+  if(e.target.id==='detailForm'){
     e.preventDefault();
     const form=e.target;
-    const customerId=form.querySelector('#saleCustomer').value;
-    const date=form.querySelector('#saleDate').value;
-    const paymentStatus=form.querySelector('#salePaymentStatus').value;
-    if(!customerId){toast('Select a customer');return;}
-
-    const saleItems=[];
-    let totalAmount=0;
-    form.querySelectorAll('.sale-item-select').forEach((sel,idx)=>{
-      const itemId=sel.value;
-      const qty=Number(form.querySelector(`[name="item_${idx}_qty"]`)?.value||0);
-      if(itemId&&qty>0){
-        const item=items.find(it=>it.id===itemId);
-        if(item){
-          const price=Number(item.values.price||0);
-          const subtotal=price*qty;
-          saleItems.push({itemId,qty,salePrice:price});
-          totalAmount+=subtotal;
-        }
-      }
-    });
-
-    if(saleItems.length===0){toast('Add at least one item');return;}
-
-    const sale={
-      id:'sale_'+uid(),
-      date,
-      customerId,
-      items:saleItems,
-      totalAmount,
-      paymentStatus
-    };
-
-    const sales=readSales();
-    sales.push(sale);
-    saveSales(sales);
-    reduceSaleStock(saleItems);
-
-    // Update customer totals
-    const customers=readCustomers();
-    const cust=customers.find(c=>c.id===customerId);
-    if(cust){
-      cust.totalSpent=(Number(cust.totalSpent||0))+totalAmount;
-      if(paymentStatus!=='Paid') cust.pendingPayment=(Number(cust.pendingPayment||0))+totalAmount;
-      saveCustomers(customers);
-    }
-
-    $('#saleDlg').close();
-    renderAll();
-    toast('Sale recorded');
+    const fd=new FormData(form);
+    const entry={name:String(fd.get('name')||'').trim(),phone:String(fd.get('phone')||'').trim(),address:String(fd.get('address')||'').trim(),notes:String(fd.get('notes')||'').trim()};
+    if(!entry.name){toast('Name is required');return;}
+    const details=readDetails();
+    const i=form.closest('dialog').dataset.i;
+    if(i!==''&&i!==undefined&&!isNaN(+i)) details[+i]=entry; else details.push(entry);
+    saveDetails(details);
+    $('#detailDlg').close();
+    renderAll();toast('Detail saved');
+    return;
+  }
+  if(e.target.id==='saleForm'){
+    e.preventDefault();
+    recordSale();
   }
 });
 
-// Initialize migrations and data stores on page load
 migrateSchema();
 migrateItems();
 initializeDataStores();

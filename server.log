@@ -1,0 +1,20 @@
+
+Saree Stock local server (offline; SQLite database)
+Admin panel:    http://127.0.0.1:8000/admin
+Customer store: http://127.0.0.1:8000/
+LAN access:     http://192.168.31.44:8000/  (customers) | http://192.168.31.44:8000/admin  (admin)
+If LAN access fails: make sure devices use the same Wi-Fi (not guest Wi-Fi), allow TCP port 8000 in the Linux firewall, and check router client isolation.
+
+Keep this terminal open. Press Ctrl+C to stop.
+
+Traceback (most recent call last):
+  File "/home/shashank/Claude/V14-TEST/server.py", line 230, in <module>
+    ThreadingHTTPServer((HOST,PORT),Handler).serve_forever()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/socketserver.py", line 457, in __init__
+    self.server_bind()
+  File "/usr/lib/python3.12/http/server.py", line 136, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/usr/lib/python3.12/socketserver.py", line 473, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 98] Address already in use
