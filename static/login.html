@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign in — APP_NAME</title>
+<style>
+:root{--bg:#f5f7fb;--ink:#172033;--muted:#68748a;--line:#e3e8f1;--brand:#3e55d8;--brand2:#293caf;--navy:#111a35}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:22px;background:radial-gradient(circle at 12% 10%,#e9edff 0,transparent 32%),var(--bg);color:var(--ink);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.box{width:min(420px,100%);background:#fff;border:1px solid var(--line);border-radius:18px;padding:30px;box-shadow:0 18px 55px rgba(22,34,70,.09)}.brand{display:flex;align-items:center;gap:12px;margin-bottom:26px}.logo{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:var(--brand);color:white;font-size:22px;font-weight:850;box-shadow:0 8px 20px #3e55d82c}.brand h1{font-size:20px;margin:0;line-height:1.1;letter-spacing:-.35px}.brand small{display:block;font-size:10px;color:var(--muted);margin-top:5px;letter-spacing:.6px;font-weight:750}.box h2{font-size:24px;letter-spacing:-.6px;margin:0 0 6px}.muted{font-size:13px;color:var(--muted);margin:0 0 22px}label{display:block;font-size:12px;font-weight:750;color:#4c5870;margin:14px 0 7px}input{width:100%;padding:12px;border:1px solid #dce2ed;border-radius:8px;font:inherit;outline:none}input:focus{border-color:#8495f0;box-shadow:0 0 0 3px #eef0ff}button{width:100%;margin-top:20px;background:var(--brand);color:white;border:0;border-radius:8px;padding:12px;font:inherit;font-weight:750;cursor:pointer}button:hover{background:var(--brand2)}.error{color:#a12a2a;font-size:12px;min-height:18px;margin-top:8px}.foot{font-size:11px;color:var(--muted);margin-top:20px;line-height:1.6}
+</style>
+</head>
+<body>
+<section class="box">
+  <div class="brand"><div class="logo">APP_INITIAL</div><div><h1>APP_NAME</h1><small>INVENTORY · KARIGARS</small></div></div>
+  <h2>Welcome back</h2>
+  <p class="muted">Sign in to your billing and inventory workspace.</p>
+  <form method="post" action="/api/login">
+    <label for="password">Workspace password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+    <div class="error">LOGIN_ERROR</div>
+    <button type="submit">Sign in</button>
+  </form>
+  <div class="foot">Local / LAN workspace. Keep access limited to devices on your trusted network.</div>
+</section>
+</body>
+</html>
