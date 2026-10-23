@@ -822,9 +822,9 @@ function updateCustStockSummary(){
 
 function renderPeople(){
     const toggle='<div class="people-toggle">'+
-      '<button data-people="customers" class="'+(peopleMode==='customers'?'active':'')+'" >👥 Customers</button>'+
-      '<button data-people="karigars" class="'+(peopleMode==='karigars'?'active':'')+'" >🔨 Karigar</button>'+
-      '<button data-people="details" class="'+(peopleMode==='details'?'active':'')+'" >📋 Details</button>'+
+      '<button data-people="customers" class="'+(peopleMode==='customers'?'active':'')+'" >Customers</button>'+
+      '<button data-people="karigars" class="'+(peopleMode==='karigars'?'active':'')+'" >Karigar</button>'+
+      '<button data-people="details" class="'+(peopleMode==='details'?'active':'')+'" >Details</button>'+
     '</div>';
     if(peopleMode==='customers'){
       $('#main').innerHTML=toggle+customersView();
